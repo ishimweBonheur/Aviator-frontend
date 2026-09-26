@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { GameStatus } from "../types/game";
+import type { GameStatus } from "@/features/game/types/game.types";
+
 export function useSound(status: GameStatus, cashOutCount: number) {
   const [enabled, setEnabled] = useState(false);
   const context = useRef<AudioContext | null>(null);
