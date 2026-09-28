@@ -1,0 +1,15 @@
+export const adminSections = [
+  "overview",
+  "users",
+  "bets",
+  "auto-bets",
+  "auto-cashouts",
+  "audit-logs",
+  "rounds",
+  "deposits",
+  "withdrawals",
+  "wallet",
+  "analytics",
+  "system",
+  "config",
+];

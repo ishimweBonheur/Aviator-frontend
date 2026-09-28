@@ -1,15 +1,15 @@
-import { useApp } from "@/store/app.store";
+import { useGameContext } from "@/features/game/state/game.context";
 import { History, ChevronDown } from "lucide-react";
 import { multiplierColor } from "@/utils/format";
 export function RoundHistory() {
-  const { game, backend, setModal } = useApp();
+  const { game, setModal } = useGameContext();
   return (
     <section className="history-bar" aria-label="Previous rounds">
       <span className="history-title">
         <History size={15} /> <span>Recent flights</span>
       </span>
       <div className="history-values">
-        {backend && !game.history.length && (
+        {!game.history.length && (
           <span className="panel-note">
             Results appear as connected rounds finish
           </span>

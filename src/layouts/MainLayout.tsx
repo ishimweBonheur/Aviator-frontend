@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 import { Toaster } from "sonner";
-import { useApp } from "@/store/app.store";
-import { Header } from "@/components/shared/Header";
-import { Footer } from "@/components/shared/Footer";
-import { AppDialogs } from "@/app/AppDialogs";
+import { useGameContext } from "@/features/game/state/game.context";
+import { Header } from "@/layouts/player/Header";
+import { Footer } from "@/layouts/player/Footer";
+import { GameDialogs } from "@/pages/Game/GameDialogs";
 export function MainLayout({ children }: { children: ReactNode }) {
-  const { reduced } = useApp();
+  const { reduced } = useGameContext();
   return (
     <div className={`app min-h-screen ${reduced ? "reduce-motion" : ""}`}>
       <Header />
@@ -13,7 +13,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
         {children}
         <Footer />
       </main>
-      <AppDialogs />
+      <GameDialogs />
       <Toaster theme="dark" position="bottom-right" richColors closeButton />
     </div>
   );

@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { api } from "@/services/backendApi";
-import type { ApiRound } from "@/types/api.types";
-import { switchMode } from "@/features/game/services/game.service";
+import { gameApi as api } from "../services/game.api";
+import type { ApiRound } from "@/features/game/types/game-api.types";
 
-export function IntegrationStatus({ backend }: { backend: boolean }) {
+export function IntegrationStatus() {
   const [busy, setBusy] = useState(false);
   const [round, setRound] = useState<ApiRound>();
   const [error, setError] = useState("");
@@ -16,11 +15,11 @@ export function IntegrationStatus({ backend }: { backend: boolean }) {
         <li>
           <strong>Connected</strong> Registration, login, wallet balance, place
           bet, cancellation, cash out, funding, history, fairness and realtime
-          events.
+          events, automatic bets and automatic cashouts.
         </li>
         <li>
-          <strong>Still needed</strong> Real external payments and server auto
-          cash-out.
+          <strong>Still needed</strong> Real external payment provider
+          integration.
         </li>
         <li>
           <strong>Persistent history</strong> Recent completed rounds and your
@@ -74,12 +73,6 @@ export function IntegrationStatus({ backend }: { backend: boolean }) {
             : ""}
         </div>
       )}
-      <button
-        className="secondary-button"
-        onClick={() => switchMode(backend ? "demo" : "backend")}
-      >
-        Switch to {backend ? "standalone demo" : "backend mode"}
-      </button>
     </>
   );
 }

@@ -1,6 +1,7 @@
 import type { Bet, AutoSettings } from "@/features/betting/types/betting.types";
-import type { PlayerBet } from "@/features/bets/types/live-bet.types";
-export type GameStatus = "WAITING" | "BETTING" | "FLYING" | "CRASHED";
+import type { SessionUser } from "@/features/auth/services/session";
+export type GameStatus =
+  "WAITING" | "BETTING" | "BETTING_CLOSED" | "FLYING" | "CRASHED";
 export interface GameRound {
   id: string;
   roundNumber: number;
@@ -12,10 +13,10 @@ export interface GameRound {
 }
 export interface GameSnapshot {
   limits?: { MinBet: string; MaxBet: string; MaxPayout: string };
-  mode?: "demo" | "backend";
+
   connection?: "connecting" | "connected" | "offline";
   error?: string;
-  user?: { id: number; username: string; email: string; role?: "PLAYER" | "ADMIN" };
+  user?: SessionUser;
   balanceLoaded?: boolean;
   bettingRound?: { id: string; roundNumber: number };
   pendingPanels?: number[];
@@ -24,6 +25,5 @@ export interface GameSnapshot {
   balance: number;
   bets: Bet[];
   history: number[];
-  players: PlayerBet[];
   auto: AutoSettings[];
 }

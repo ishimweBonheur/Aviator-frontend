@@ -18,7 +18,7 @@ export function useGameNotifications(game: GameSnapshot) {
       previous.current.set(b.id, b.status);
     });
     if (game.round.status === "CRASHED" && previousStatus.current !== "CRASHED")
-      toast(`Round crashed at ${game.round.multiplier.toFixed(2)}x`);
+      toast(`Round crashed at ${game.round.crashMultiplier.toFixed(2)}x`);
     previousStatus.current = game.round.status;
   }, [game]);
 }

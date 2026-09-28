@@ -5,9 +5,13 @@ import type { GameSnapshot } from "@/features/game/types/game.types";
 
 export function GameCanvas({ game }: { game: GameSnapshot }) {
   const { round, countdown } = game;
-  const backend = game.mode === "backend";
+
   const flying = round.status === "FLYING",
     crashed = round.status === "CRASHED";
+  const countdownAvailable =
+    game.connection === "connected" &&
+    ["BETTING", "BETTING_CLOSED"].includes(round.status) &&
+    !!game.bettingRound;
   const progress = Math.min(1, Math.log(round.multiplier) / Math.log(9));
   const x = 110 + progress * 635,
     y = 324 - progress * progress * 260;
@@ -57,7 +61,7 @@ export function GameCanvas({ game }: { game: GameSnapshot }) {
             <feGaussianBlur stdDeviation="4" />
           </filter>
         </defs>
-        {(flying || crashed) && (
+        {flying && (
           <>
             <path d={`${path} L ${x} 350 L 42 350 Z`} fill="url(#area)" />
             <path
@@ -72,77 +76,76 @@ export function GameCanvas({ game }: { game: GameSnapshot }) {
           </>
         )}
       </svg>
-      {(flying || crashed) && (
+      {flying && (
         <motion.div
           className="aircraft"
           animate={{
-            left: crashed ? "115%" : `${x / 8.5}%`,
-            top: crashed ? "-25%" : `${y / 3.9}%`,
-            opacity: crashed ? 0 : 1,
+            left: `${x / 8.5}%`,
+            top: `${y / 3.9}%`,
+            opacity: 1,
           }}
-          transition={{ duration: crashed ? 0.7 : 0.07, ease: "linear" }}
+          transition={{ duration: 0.07, ease: "linear" }}
         >
           <Aircraft />
         </motion.div>
       )}
       <div className="multiplier-block">
-        {flying || crashed ? (
+        {flying ? (
           <>
-            <div className={`flight-caption ${crashed ? "pink" : ""}`}>
-              {crashed ? "FLEW AWAY" : "YOU’RE CLEARED FOR TAKEOFF"}
-            </div>
-            <div className={`multiplier ${crashed ? "pink" : ""}`}>
+            <div className="flight-caption">YOU’RE CLEARED FOR TAKEOFF</div>
+            <div className="multiplier">
               {round.multiplier.toFixed(2)}
               <span>x</span>
             </div>
             <div className="flight-status">
-              {crashed ? (
-                "A new flight is on the horizon"
-              ) : (
-                <>
-                  <span className="pulse-dot" /> Gaining altitude{" "}
-                  <ArrowUpRight size={15} />
-                </>
-              )}
+              <span className="pulse-dot" /> Gaining altitude{" "}
+              <ArrowUpRight size={15} />
             </div>
           </>
         ) : (
           <>
-            <div className="flight-caption">WAITING FOR NEXT ROUND</div>
-            <div className="multiplier countdown">
-              {countdown}
-              {<span>s</span>}
+            <div className="flight-caption">
+              {countdownAvailable && countdown > 0
+                ? "PLACE YOUR BETS"
+                : crashed
+                  ? "ROUND CRASHED"
+                  : "WAITING FOR NEXT ROUND"}
             </div>
-            {!backend && (
-              <div className="countdown-track">
-                <div style={{ width: `${(countdown / 6) * 100}%` }} />
-              </div>
-            )}
+            <div
+              className="multiplier countdown"
+              role="timer"
+              aria-label="Next round countdown"
+            >
+              {countdownAvailable ? countdown : "—"}
+              {countdownAvailable && <span>s</span>}
+            </div>
+
             <div className="flight-status">
-              {backend
-                ? game.connection !== "connected"
-                  ? "Connecting to the game server…"
-                  : "Waiting for the server to start the flight"
-                : "Place your bets. Get ready to fly."}
+              {game.connection !== "connected"
+                ? "Connecting to the game server…"
+                : countdownAvailable && countdown > 0
+                  ? `Next round starts in ${countdown}`
+                  : "Waiting for the server to start the flight"}
             </div>
           </>
         )}
       </div>
+      {game.history.length > 0 && (
+        <div className="previous-round">
+          Previous: {game.history[0].toFixed(2)}x
+        </div>
+      )}
       <div className="canvas-bottom">
         <span>
           <ShieldCheck size={13} />{" "}
-          {backend
-            ? `SERVER · ${game.connection?.toUpperCase()}`
-            : "FRONTEND SIMULATION"}
+          {`SERVER · ${game.connection?.toUpperCase()}`}
         </span>
         <span>
           {flying
             ? "Flight in progress"
             : crashed
               ? "Flight complete"
-              : backend
-                ? "Waiting for server"
-                : "Betting is open"}
+              : "Waiting for server"}
           <span className={`status-dot ${flying ? "green-bg" : ""}`} />
         </span>
       </div>

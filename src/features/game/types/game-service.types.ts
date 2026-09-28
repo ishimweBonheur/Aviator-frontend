@@ -11,15 +11,10 @@ export interface GameService {
   ) => void | Promise<void>;
   cancelBet: (panel: number) => void | Promise<void>;
   cashOut: (panel: number) => void | Promise<void>;
-  configureAuto: (panel: number, settings: AutoSettings) => void;
-  addDemoFunds: () => void;
-  login?: (email: string, password: string) => Promise<void>;
-  register?: (
-    username: string,
-    email: string,
-    password: string,
-  ) => Promise<void>;
-  logout?: () => void;
-  accountRequest?: <T>(path: string, body?: unknown, method?: string) => Promise<T>;
-  refresh?: () => Promise<void>;
+  configureAuto: (
+    panel: number,
+    settings: AutoSettings,
+  ) => void | Promise<void>;
+
+  refresh: () => Promise<void>;
 }

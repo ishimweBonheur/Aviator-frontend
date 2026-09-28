@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
-import { api } from "@/services/backendApi";
-import type { ApiRound } from "@/types/api.types";
-const hex = (bytes: ArrayBuffer) =>
-  Array.from(new Uint8Array(bytes), (b) =>
-    b.toString(16).padStart(2, "0"),
-  ).join("");
+import { gameApi as api } from "../services/game.api";
+import type { ApiRound } from "@/features/game/types/game-api.types";
 export function FairnessView() {
   const [rounds, setRounds] = useState<ApiRound[]>([]),
     [round, setRound] = useState<ApiRound>(),
@@ -84,51 +80,8 @@ export function FairnessView() {
               className="primary-button"
               onClick={async () => {
                 try {
-                  const encoder = new TextEncoder();
-                  const hash = hex(
-                    await crypto.subtle.digest(
-                      "SHA-256",
-                      encoder.encode(round.server_seed!),
-                    ),
-                  );
-                  if (hash !== round.server_seed_hash) {
-                    setMessage("Seed hash does not match.");
-                    return;
-                  }
-                  if (round.house_edge === undefined) {
-                    setMessage(
-                      "Seed hash verified. This legacy round has no recorded house edge for result verification.",
-                    );
-                    return;
-                  }
-                  const key = await crypto.subtle.importKey(
-                    "raw",
-                    encoder.encode(round.server_seed!),
-                    { name: "HMAC", hash: "SHA-256" },
-                    false,
-                    ["sign"],
-                  );
-                  const digest = hex(
-                    await crypto.subtle.sign(
-                      "HMAC",
-                      key,
-                      encoder.encode(round.client_seed + ":" + round.nonce),
-                    ),
-                  );
-                  const random =
-                    BigInt("0x" + digest.slice(0, 14)) & ((1n << 52n) - 1n);
-                  const expected = Math.max(
-                    1,
-                    ((1 - Number(round.house_edge)) * 2 ** 52) /
-                      (2 ** 52 - Number(random)),
-                  );
-                  setMessage(
-                    Math.abs(
-                      Number(expected.toFixed(4)) - Number(round.crash_point),
-                    ) < 0.00011
-                      ? "Seed commitment and crash result verified."
-                      : "Seed verified, but crash result differs.",
-                  );
+                  const result = await api.verify(round.id);
+                  setMessage(result.message);
                 } catch (e) {
                   setMessage((e as Error).message);
                 }

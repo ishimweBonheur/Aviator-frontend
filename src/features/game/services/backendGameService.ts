@@ -2,14 +2,16 @@ import type { GameService } from "@/features/game/types/game-service.types";
 import type { GameSnapshot } from "@/features/game/types/game.types";
 import type { AutoSettings, Bet } from "@/features/betting/types/betting.types";
 
-import { api } from "@/services/backendApi";
-import { ApiError, request } from "@/services/api";
+import { api } from "@/features/game/services/backendApi";
+import { ApiError } from "@/services/api";
 import { createGameSocket } from "@/services/socket";
-import type { ApiRound, RoundEvent } from "@/types/api.types";
+import type { ApiRound } from "@/features/game/types/game-api.types";
+import type { RoundEvent } from "@/features/game/types/round-event.types";
+import type { ApiAutoSetting } from "@/features/betting/types/betting-api.types";
 
-const SESSION_KEY = "altitude-backend-session";
+import { session } from "@/features/auth/services/session";
+import { walletApi } from "@/features/wallet/services/wallet.api";
 const emptyState = (): GameSnapshot => ({
-  mode: "backend",
   connection: "connecting",
   balanceLoaded: false,
   balance: 0,
@@ -25,7 +27,6 @@ const emptyState = (): GameSnapshot => ({
   countdown: 0,
   bets: [],
   history: [],
-  players: [],
   pendingPanels: [],
   auto: [0, 1].map(() => ({
     enabled: false,
@@ -39,39 +40,43 @@ export class BackendGameService implements GameService {
   private eventVersion = 0;
   private refreshVersion = 0;
   private state = emptyState();
-  private token = "";
+  private get token() {
+    return session.getToken();
+  }
   private listeners = new Set<() => void>();
   private socket?: WebSocket;
   private reconnectTimer?: ReturnType<typeof setTimeout>;
   private pollTimer?: ReturnType<typeof setInterval>;
   private reconnectAttempt = 0;
-  private authVersion = 0;
+  private get authVersion() {
+    return session.getSnapshot().revision;
+  }
   private balanceVersion = 0;
   private lastClosedRound = 0;
   private historyIds = new Set<number>();
   private lastEventAt = 0;
+  private betsVersion = 0;
+  private lastBetsSyncAt = 0;
+  private autoSaving = false;
 
   constructor() {
-    try {
-      const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) ?? "null");
-      if (
-        typeof saved?.token === "string" &&
-        typeof saved?.user?.id === "number"
-      ) {
-        this.token = saved.token;
-        this.state.user = saved.user;
-        this.state.bets = Array.isArray(saved.bets)
-          ? saved.bets
-              .filter(
-                (b: Bet) =>
-                  typeof b.id === "string" && typeof b.roundId === "string",
-              )
-              .slice(0, 200)
-          : [];
-      }
-    } catch {
-      sessionStorage.removeItem(SESSION_KEY);
-    }
+    this.state.user = session.getSnapshot().user;
+    session.subscribe(() => {
+      const auth = session.getSnapshot();
+      this.publish({
+        user: auth.user,
+        error: auth.error,
+        balance: 0,
+        balanceLoaded: false,
+        bets: [],
+        pendingPanels: [],
+        auto: emptyState().auto,
+      });
+      if (this.listeners.size && auth.user) void this.refresh();
+    });
+    walletApi.subscribeChanges(() => {
+      if (this.listeners.size && this.token) void this.refreshBalance();
+    });
   }
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => {
@@ -103,20 +108,84 @@ export class BackendGameService implements GameService {
     this.state = { ...this.state, ...update };
     this.listeners.forEach((listener) => listener());
   }
-  private persist() {
-    if (this.token && this.state.user)
-      sessionStorage.setItem(
-        SESSION_KEY,
-        JSON.stringify({
-          token: this.token,
-          user: this.state.user,
-          bets: this.state.bets.slice(0, 200),
-        }),
-      );
+  private async refreshBets() {
+    if (!this.token || this.state.pendingPanels?.length) return;
+    const auth = this.authVersion,
+      version = ++this.betsVersion;
+    this.lastBetsSyncAt = Date.now();
+    try {
+      const bets = await api.bets(this.token);
+      if (
+        auth !== this.authVersion ||
+        version !== this.betsVersion ||
+        this.state.pendingPanels?.length
+      )
+        return;
+      this.publish({
+        bets: bets.map((b) => ({
+          id: String(b.id),
+          roundId: String(b.round_id),
+          roundNumber: b.round_number,
+          userId: String(b.user_id),
+          panel: b.bet_number - 1,
+          amount: Number(b.amount),
+          status:
+            b.status === "ACTIVE" &&
+            ["BETTING_OPEN", "BETTING_CLOSED"].includes(b.round_status)
+              ? "PENDING"
+              : b.status,
+          cashOutMultiplier: b.cashout_multiplier
+            ? Number(b.cashout_multiplier)
+            : undefined,
+          autoCashOut: b.auto_cashout_multiplier
+            ? Number(b.auto_cashout_multiplier)
+            : undefined,
+          potentialWin: Number(b.potential_payout ?? b.payout),
+          canCancel: b.can_cancel,
+          canCashout: b.can_cashout,
+        })),
+      });
+    } catch (error) {
+      if (auth !== this.authVersion) return;
+      if (error instanceof ApiError && error.status === 401)
+        this.expireSession();
+      else this.publish({ error: (error as Error).message });
+    }
+  }
+  private applyAutoSettings(settings: ApiAutoSetting[]) {
+    this.publish({
+      auto: this.state.auto.map((draft, panel) => {
+        const saved = settings.find((s) => s.bet_number === panel + 1);
+        if (!saved) return draft;
+        return {
+          ...draft,
+          enabled: saved.enabled,
+          error: saved.last_error,
+          ...(saved.enabled || draft.enabled
+            ? {
+                amount: Number(saved.amount),
+                cashOut: saved.auto_cashout_multiplier !== null,
+                target: Number(saved.auto_cashout_multiplier ?? 2),
+              }
+            : {}),
+        };
+      }),
+    });
+  }
+  private async refreshAutoSettings() {
+    if (!this.token || this.autoSaving) return;
+    const auth = this.authVersion;
+    const saved = await api.autoSettings(this.token);
+    if (auth === this.authVersion && !this.autoSaving)
+      this.applyAutoSettings(saved);
   }
   private connect() {
     if (!this.listeners.size) return;
-    this.publish({ connection: "connecting", bettingRound: undefined });
+    this.publish({
+      connection: "connecting",
+      bettingRound: undefined,
+      countdown: 0,
+    });
     const socket = createGameSocket();
     this.socket = socket;
     socket.onopen = () => {
@@ -136,7 +205,7 @@ export class BackendGameService implements GameService {
         )
           return;
         this.lastEventAt = Date.now();
-        if (event.type !== "MULTIPLIER_UPDATE") this.eventVersion++;
+        this.eventVersion++;
         this.onEvent(event);
       } catch {
         this.publish({
@@ -150,6 +219,7 @@ export class BackendGameService implements GameService {
       if (this.socket !== socket) return;
       this.publish({
         connection: "offline",
+        countdown: 0,
         bettingRound: undefined,
         error:
           "Live connection lost. Betting and cash-out are paused until reconnection.",
@@ -190,61 +260,19 @@ export class BackendGameService implements GameService {
           this.publish({
             round: { ...this.state.round, status: "WAITING", multiplier: 1 },
           });
-        if (snapshot.upcoming) {
+        if (!snapshot.running && snapshot.upcoming) {
           const r = snapshot.upcoming;
-          const seconds = r.betting_closes_at
-            ? Math.max(
-                0,
-                Math.ceil(
-                  (Date.parse(r.betting_closes_at) -
-                    Date.parse(snapshot.server_time)) /
-                    1000,
-                ),
-              )
-            : 0;
-          this.publish({
-            bettingRound: { id: String(r.id), roundNumber: r.round_number },
-            countdown: seconds,
-          });
+          const seconds = snapshot.seconds_remaining ?? 0;
+          if (["BETTING_OPEN", "BETTING_CLOSED"].includes(r.status))
+            this.openRound(
+              r.id,
+              r.round_number,
+              r.status === "BETTING_OPEN" ? seconds : 0,
+            );
         }
       }
-      if (this.token && !this.state.pendingPanels?.length) {
-        const bets = await api.bets(this.token);
-        if (
-          authVersion === this.authVersion &&
-          version === this.refreshVersion &&
-          !this.state.pendingPanels?.length
-        ) {
-          this.publish({
-            bets: bets.map((b) => ({
-              id: String(b.id),
-              roundId: String(b.round_id),
-              roundNumber: b.round_number,
-              userId: String(b.user_id),
-              panel: b.bet_number - 1,
-              amount: Number(b.amount),
-              status:
-                b.status === "ACTIVE" &&
-                ["BETTING_OPEN", "BETTING_CLOSED"].includes(b.round_status)
-                  ? "PENDING"
-                  : b.status,
-              cashOutMultiplier: b.cashout_multiplier
-                ? Number(b.cashout_multiplier)
-                : undefined,
-              potentialWin:
-                b.status === "CASHED_OUT"
-                  ? Number(b.payout)
-                  : b.status === "ACTIVE"
-                    ? Number(b.amount) *
-                      (b.round_id === Number(this.state.round.id)
-                        ? this.state.round.multiplier
-                        : 1)
-                    : 0,
-            })),
-          });
-          this.persist();
-        }
-      }
+      await this.refreshBets();
+      await this.refreshAutoSettings();
     } catch (error) {
       if (
         error instanceof ApiError &&
@@ -286,29 +314,38 @@ export class BackendGameService implements GameService {
         });
     }
   }
+  private openRound(id: number, roundNumber: number, seconds: number) {
+    if (
+      id <= this.lastClosedRound ||
+      roundNumber < this.state.round.roundNumber
+    )
+      return;
+    this.publish({
+      bettingRound: { id: String(id), roundNumber },
+      countdown: seconds,
+      round: {
+        id: String(id),
+        roundNumber,
+        status: seconds > 0 ? "BETTING" : "BETTING_CLOSED",
+        multiplier: 1,
+        crashMultiplier: 0,
+        startedAt: null,
+        endedAt: null,
+      },
+    });
+  }
   private applyRound(round: ApiRound) {
-    // The current-round endpoint returns the newest upcoming round, not necessarily the flying one.
-    if (round.status === "BETTING_OPEN") {
-      if (
-        round.id > this.lastClosedRound &&
-        round.round_number >= this.state.round.roundNumber
-      ) {
-        this.publish({
-          bettingRound: {
-            id: String(round.id),
-            roundNumber: round.round_number,
-          },
-        });
-      }
-    } else if (
+    if (
       round.status === "RUNNING" &&
       round.round_number >= this.state.round.roundNumber &&
-      this.state.round.status !== "FLYING"
+      (this.state.round.id !== String(round.id) ||
+        this.state.round.status !== "FLYING")
     ) {
       this.onEvent({
         type: "ROUND_STARTED",
         round_id: round.id,
         round_number: round.round_number,
+        timestamp: round.started_at,
       });
     }
   }
@@ -317,27 +354,33 @@ export class BackendGameService implements GameService {
       if (this.token) void this.refresh();
       return;
     }
-    if (event.type === "COUNTDOWN") {
-      if (event.round_id >= this.lastClosedRound)
-        this.publish({
-          bettingRound: {
-            id: String(event.round_id),
-            roundNumber: event.round_number,
-          },
-          countdown: event.seconds_remaining ?? 0,
-        });
-      return;
-    }
     const id = String(event.round_id);
-    if (event.type === "ROUND_OPENED") {
-      if (event.round_id > this.lastClosedRound)
-        this.publish({ bettingRound: { id, roundNumber: event.round_number } });
+    if (event.type === "COUNTDOWN" || event.type === "ROUND_OPENED") {
+      const seconds = event.seconds_remaining ?? 0;
+      this.openRound(
+        event.round_id,
+        event.round_number,
+        Number.isFinite(seconds) ? Math.max(0, seconds) : 0,
+      );
       return;
     }
     if (event.type === "ROUND_STARTED" || event.type === "MULTIPLIER_UPDATE") {
       if (
         event.round_number < this.state.round.roundNumber ||
         (this.state.round.id === id && this.state.round.status === "CRASHED")
+      )
+        return;
+      // A tick can update an existing flight, never start one. REST recovery
+      // explicitly applies RUNNING via ROUND_STARTED before applying a tick.
+      if (
+        event.type === "MULTIPLIER_UPDATE" &&
+        (this.state.round.id !== id || this.state.round.status !== "FLYING")
+      )
+        return;
+      if (
+        event.type === "ROUND_STARTED" &&
+        event.round_id <= this.lastClosedRound &&
+        (this.state.round.id !== id || this.state.round.status !== "FLYING")
       )
         return;
       let multiplier =
@@ -354,9 +397,11 @@ export class BackendGameService implements GameService {
           multiplier,
           crashMultiplier: 0,
           startedAt:
-            this.state.round.id === id
+            this.state.round.id === id && this.state.round.startedAt
               ? this.state.round.startedAt
-              : Date.now(),
+              : event.timestamp
+                ? Date.parse(event.timestamp)
+                : Date.now(),
           endedAt: null,
         },
         bettingRound:
@@ -364,20 +409,16 @@ export class BackendGameService implements GameService {
           Number(this.state.bettingRound.id) > event.round_id
             ? this.state.bettingRound
             : undefined,
-        bets: this.state.bets.map((b) =>
-          b.roundId === id && (b.status === "PENDING" || b.status === "ACTIVE")
-            ? {
-                ...b,
-                status: "ACTIVE",
-                potentialWin: Number((b.amount * multiplier).toFixed(2)),
-              }
-            : b.roundNumber < event.round_number &&
-                ["PENDING", "ACTIVE"].includes(b.status)
-              ? { ...b, status: "UNKNOWN" }
-              : b,
-        ),
+        countdown:
+          Number(this.state.bettingRound?.id ?? 0) > event.round_id
+            ? this.state.countdown
+            : 0,
       });
-      if (event.type === "ROUND_STARTED") this.persist();
+      if (
+        event.type === "ROUND_STARTED" ||
+        Date.now() - this.lastBetsSyncAt >= 1000
+      )
+        void this.refreshBets();
       return;
     }
     if (event.type === "ROUND_CRASHED") {
@@ -385,7 +426,7 @@ export class BackendGameService implements GameService {
       if (!Number.isFinite(crash) || crash < 1) return;
       this.lastClosedRound = Math.max(this.lastClosedRound, event.round_id);
       if (this.state.bettingRound?.id === id)
-        this.publish({ bettingRound: undefined });
+        this.publish({ bettingRound: undefined, countdown: 0 });
       if (!this.historyIds.has(event.round_id)) {
         this.historyIds.add(event.round_id);
         this.publish({ history: [crash, ...this.state.history].slice(0, 30) });
@@ -396,76 +437,37 @@ export class BackendGameService implements GameService {
             id,
             roundNumber: event.round_number,
             status: "CRASHED",
-            multiplier: crash,
+            multiplier: 1,
             crashMultiplier: crash,
             startedAt: this.state.round.startedAt,
             endedAt: Date.now(),
           },
         });
     }
+    if (event.type === "ROUND_SETTLED") {
+      this.lastClosedRound = Math.max(this.lastClosedRound, event.round_id);
+      if (this.state.round.id === id)
+        this.publish({
+          round: { ...this.state.round, status: "WAITING", multiplier: 1 },
+          countdown: 0,
+          bettingRound: undefined,
+        });
+    }
     if (event.type === "ROUND_CRASHED" || event.type === "ROUND_SETTLED") {
-      this.publish({
-        bets: this.state.bets.map((b) =>
-          b.roundId === id && ["PENDING", "ACTIVE"].includes(b.status)
-            ? { ...b, status: "LOST", potentialWin: 0 }
-            : b,
-        ),
-      });
-      this.persist();
+      void this.refreshBets();
       if (event.type === "ROUND_SETTLED" && this.token)
         void this.refreshBalance();
     }
   }
-  login = async (email: string, password: string) => {
-    const response = await api.login(email, password);
-    if (!response.token || !response.user?.ID)
-      throw new Error("Invalid login response");
-    this.authVersion++;
-    this.token = response.token;
-    const sameUser = this.state.user?.id === response.user.ID;
-    this.publish({
-      user: {
-        id: response.user.ID,
-        username: response.user.Username,
-        email: response.user.Email,
-        role: response.user.Role,
-      },
-      bets: sameUser ? this.state.bets : [],
-      pendingPanels: [],
-      balance: 0,
-      balanceLoaded: false,
-      error: undefined,
-    });
-    this.persist();
-    await this.refresh();
-    if (!this.state.user)
-      throw new Error("Session could not be verified. Sign in again.");
-  };
-  register = async (username: string, email: string, password: string) => {
-    await api.register(username, email, password);
-  };
-  logout = () => {
-    this.authVersion++;
-    this.token = "";
-    sessionStorage.removeItem(SESSION_KEY);
-    this.publish({
-      user: undefined,
-      balance: 0,
-      balanceLoaded: false,
-      bets: [],
-      pendingPanels: [],
-      error: undefined,
-    });
-  };
   private expireSession() {
-    this.logout();
-    this.publish({ error: "Your session expired. Sign in again." });
+    session.expire();
   }
   placeBet = async (panel: number, amount: number, autoCashOut?: number) => {
     if (!this.token) throw new Error("Sign in to place a bet");
     const target = this.state.bettingRound;
     if (
       this.state.connection !== "connected" ||
+      this.state.round.status !== "BETTING" ||
       !target ||
       this.state.countdown <= 0
     )
@@ -481,8 +483,7 @@ export class BackendGameService implements GameService {
       throw new Error(
         "Enter 50 to 1,000,000 RWF with at most two decimal places",
       );
-    if (autoCashOut !== undefined)
-      throw new Error("Server-side auto cash-out is not implemented");
+
     if (
       this.state.pendingPanels?.includes(panel) ||
       this.state.bets.some((b) => b.panel === panel && b.roundId === target.id)
@@ -505,13 +506,13 @@ export class BackendGameService implements GameService {
       bets: [pending, ...this.state.bets].slice(0, 200),
       pendingPanels: [...this.state.pendingPanels!, panel],
     });
-    this.persist();
     try {
       const { bet } = await api.placeBet(
         this.token,
         Number(target.id),
         panel,
         amount,
+        autoCashOut,
       );
       if (version !== this.authVersion) return;
       if (
@@ -520,27 +521,6 @@ export class BackendGameService implements GameService {
         bet.bet_number !== panel + 1
       )
         throw new ApiError("Invalid bet response", 0);
-      const current = this.state.round;
-      const status =
-        current.roundNumber > target.roundNumber ||
-        (current.id === target.id && current.status === "CRASHED")
-          ? "LOST"
-          : current.id === target.id && current.status === "FLYING"
-            ? "ACTIVE"
-            : "PENDING";
-      this.publish({
-        bets: this.state.bets.map((b) =>
-          b.id === pending.id
-            ? {
-                ...pending,
-                id: String(bet.id),
-                amount: Number(bet.amount),
-                status,
-                potentialWin: status === "LOST" ? 0 : Number(bet.amount),
-              }
-            : b,
-        ),
-      });
       await this.refreshBalance();
     } catch (error) {
       if (version !== this.authVersion) return;
@@ -563,7 +543,6 @@ export class BackendGameService implements GameService {
         this.publish({
           pendingPanels: this.state.pendingPanels!.filter((p) => p !== panel),
         });
-        this.persist();
         await this.refresh();
       }
     }
@@ -580,6 +559,7 @@ export class BackendGameService implements GameService {
     if (
       !bet ||
       this.state.round.status !== "FLYING" ||
+      !bet.canCashout ||
       this.state.pendingPanels?.includes(panel)
     )
       throw new Error("No active bet is available to cash out");
@@ -590,7 +570,6 @@ export class BackendGameService implements GameService {
         b.id === bet.id ? { ...b, status: "UNKNOWN" } : b,
       ),
     });
-    this.persist();
     try {
       const result = await api.cashOut(this.token, bet.id);
       if (version !== this.authVersion) return;
@@ -631,11 +610,7 @@ export class BackendGameService implements GameService {
             b.id === bet.id
               ? {
                   ...bet,
-                  status:
-                    this.state.round.id === bet.roundId &&
-                    this.state.round.status === "FLYING"
-                      ? "ACTIVE"
-                      : "LOST",
+                  status: bet.status,
                 }
               : b,
           ),
@@ -654,7 +629,6 @@ export class BackendGameService implements GameService {
         this.publish({
           pendingPanels: this.state.pendingPanels!.filter((p) => p !== panel),
         });
-        this.persist();
         await this.refresh();
       }
     }
@@ -667,7 +641,11 @@ export class BackendGameService implements GameService {
         b.status === "PENDING",
     );
     if (
+      !this.token ||
+      this.state.connection !== "connected" ||
+      this.state.round.status !== "BETTING" ||
       !bet ||
+      !bet.canCancel ||
       this.state.countdown <= 0 ||
       this.state.pendingPanels?.includes(panel)
     )
@@ -685,35 +663,30 @@ export class BackendGameService implements GameService {
       }
     }
   };
-  accountRequest = async <T>(path: string, body?: unknown, method?: string): Promise<T> => {
-    const version = this.authVersion;
-    try {
-      return await request<T>(path, {
-        token: this.token,
-        body,
-        method: method ?? (body === undefined ? "GET" : "POST"),
+  configureAuto = async (panel: number, settings: AutoSettings) => {
+    const before = this.state.auto[panel];
+    // Amount and target edits are form drafts. Enabling/disabling automation is an API operation.
+    if (!before.enabled && !settings.enabled) {
+      this.publish({
+        auto: this.state.auto.map((a, i) => (i === panel ? settings : a)),
       });
-    } catch (error) {
-      if (
-        error instanceof ApiError &&
-        error.status === 401 &&
-        version === this.authVersion
-      )
-        this.expireSession();
-      throw error;
-    } finally {
-      if (body !== undefined && version === this.authVersion)
-        await this.refresh();
+      return;
     }
-  };
-  addDemoFunds = () => {
-    throw new Error("Use the SANDBOX deposit form");
-  };
-  configureAuto = (panel: number, settings: AutoSettings) => {
-    this.publish({
-      auto: this.state.auto.map((a, i) =>
-        i === panel ? { ...settings, enabled: false, cashOut: false } : a,
-      ),
-    });
+    if (!this.token) throw new Error("Sign in to configure automatic betting");
+    if (this.autoSaving) throw new Error("Wait for settings to save");
+    const auth = this.authVersion;
+    this.autoSaving = true;
+    try {
+      const saved = await api.saveAutoSettings(this.token, panel, {
+        enabled: settings.enabled,
+        amount: settings.amount.toFixed(2),
+        auto_cashout_multiplier: settings.cashOut
+          ? settings.target.toFixed(2)
+          : null,
+      });
+      if (auth === this.authVersion) this.applyAutoSettings(saved);
+    } finally {
+      this.autoSaving = false;
+    }
   };
 }

@@ -1,6 +1,6 @@
 import { Toggle } from "@/components/ui/Toggle";
 import { useBet } from "@/features/betting/hooks/useBet";
-import { QUICK_BET_AMOUNTS } from "@/constants/betting.constants";
+import { QUICK_BET_AMOUNTS } from "@/features/betting/betting.constants";
 import { ArrowUpRight, Check, Minus, Plus, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 import type { GameSnapshot } from "@/features/game/types/game.types";
@@ -17,7 +17,6 @@ export function BetPanel({
     mode,
     setMode,
     settings,
-    backend,
     busy,
     bet,
     open,
@@ -35,17 +34,14 @@ export function BetPanel({
         <div className="segmented">
           <button
             className={mode === "manual" ? "selected" : ""}
-            onClick={() => setMode("manual")}
+            onClick={() => {
+              setMode("manual");
+              configure({ enabled: false });
+            }}
           >
             Manual
           </button>
           <button
-            disabled={backend}
-            title={
-              backend
-                ? "Automatic betting requires additional backend support"
-                : undefined
-            }
             className={mode === "auto" ? "selected" : ""}
             onClick={() => setMode("auto")}
           >
@@ -64,7 +60,7 @@ export function BetPanel({
               disabled={locked}
               onClick={() =>
                 configure({
-                  amount: Math.max(backend ? 50 : 100, settings.amount - 100),
+                  amount: Math.max(50, settings.amount - 100),
                 })
               }
             >
@@ -73,9 +69,9 @@ export function BetPanel({
             <input
               id={`amount-${panel}`}
               type="number"
-              min={backend ? Number(game.limits?.MinBet ?? 50) : 100}
+              min={Number(game.limits?.MinBet ?? 50)}
               max={Number(game.limits?.MaxBet ?? 1000000)}
-              step={backend ? "0.01" : "100"}
+              step={"0.01"}
               value={settings.amount}
               disabled={locked}
               onChange={(e) => configure({ amount: Number(e.target.value) })}
@@ -108,9 +104,10 @@ export function BetPanel({
           disabled={
             busy ||
             bet?.status === "UNKNOWN" ||
-            (backend &&
-              (game.connection !== "connected" ||
-                (bet?.status === "PENDING" && !open))) ||
+            game.connection !== "connected" ||
+            (bet?.status === "PENDING" && (!open || !bet.canCancel)) ||
+            (bet?.status === "ACTIVE" &&
+              (game.round.status !== "FLYING" || !bet.canCashout)) ||
             bet?.status === "CASHED_OUT" ||
             bet?.status === "LOST" ||
             bet?.status === "CANCELLED" ||
@@ -137,6 +134,17 @@ export function BetPanel({
           {!bet && !open && <small>Waiting for takeoff</small>}
         </motion.button>
       </div>
+      {settings.enabled && (
+        <p className="panel-note">
+          Auto bet runs on the server, including while you are offline. Disable
+          it here to stop future bets.
+        </p>
+      )}
+      {settings.error && (
+        <p role="alert" className="panel-note">
+          {settings.error}
+        </p>
+      )}
       <div className="auto-row">
         {mode === "auto" && (
           <label>
@@ -150,7 +158,7 @@ export function BetPanel({
         )}
         <label>
           <Toggle
-            disabled={backend || locked}
+            disabled={locked}
             checked={settings.cashOut}
             onChange={() => configure({ cashOut: !settings.cashOut })}
             label={`Auto cash out panel ${panel + 1}`}
@@ -162,16 +170,16 @@ export function BetPanel({
             aria-label={`Auto cash out multiplier ${panel + 1}`}
             type="number"
             min="1.01"
-            max="100"
-            step="0.1"
-            disabled={locked || backend}
+            max="1000000"
+            step="0.01"
+            disabled={locked}
             value={settings.target}
             onChange={(e) => configure({ target: Number(e.target.value) })}
           />
           <span>×</span>
         </div>
       </div>
-      {backend && (
+      {
         <p className="panel-note">
           {game.bettingRound && (
             <span>
@@ -192,9 +200,9 @@ export function BetPanel({
             ? "Response unconfirmed. Bet lookup is needed to reconcile this result."
             : bet?.status === "PENDING"
               ? `Queued for round #${bet.roundNumber}. Cancel before betting closes.`
-              : "Auto cash-out is not available on the backend yet."}
+              : "Auto cash-out targets are executed by the server."}
         </p>
-      )}
+      }
     </section>
   );
 }

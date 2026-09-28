@@ -7,6 +7,11 @@ export class ApiError extends Error {
     this.status = status;
   }
 }
+export function isAuthorizationError(error: unknown): error is ApiError {
+  if (typeof error !== "object" || error === null || !("status" in error))
+    return false;
+  return error.status === 401 || error.status === 403;
+}
 export async function request<T>(
   path: string,
   options: { method?: string; body?: unknown; token?: string } = {},

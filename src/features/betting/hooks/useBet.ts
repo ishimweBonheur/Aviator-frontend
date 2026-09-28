@@ -7,7 +7,7 @@ import { currency } from "@/utils/format";
 export function useBet(panel: number, game: GameSnapshot) {
   const [mode, setMode] = useState<"manual" | "auto">("manual");
   const settings = game.auto[panel];
-  const backend = game.mode === "backend";
+
   const busy = !!game.pendingPanels?.includes(panel);
   const active = game.bets.find(
     (b) =>
@@ -15,32 +15,26 @@ export function useBet(panel: number, game: GameSnapshot) {
       b.roundId === game.round.id &&
       ["ACTIVE", "UNKNOWN"].includes(b.status),
   );
-  const bet = backend
-    ? (active ??
-      game.bets.find(
-        (b) => b.panel === panel && b.roundId === game.bettingRound?.id,
-      ) ??
-      (!game.bettingRound
-        ? game.bets.find(
-            (b) => b.panel === panel && b.roundId === game.round.id,
-          )
-        : undefined))
-    : game.bets.find(
-        (b) =>
-          b.panel === panel &&
-          b.roundNumber === game.round.roundNumber &&
-          b.status !== "CANCELLED",
-      );
-  const open = backend
-    ? game.countdown > 0 &&
-      !!game.bettingRound &&
-      game.connection === "connected" &&
-      !!game.user &&
-      !!game.balanceLoaded
-    : ["WAITING", "BETTING"].includes(game.round.status);
-  const locked = !!bet || busy;
+  const bet =
+    active ??
+    game.bets.find(
+      (b) => b.panel === panel && b.roundId === game.bettingRound?.id,
+    ) ??
+    (!game.bettingRound
+      ? game.bets.find((b) => b.panel === panel && b.roundId === game.round.id)
+      : undefined);
+  const open =
+    game.round.status === "BETTING" &&
+    game.countdown > 0 &&
+    !!game.bettingRound &&
+    game.connection === "connected" &&
+    !!game.user &&
+    !!game.balanceLoaded;
+  const locked = !!bet || busy || settings.enabled;
   const configure = (update: Partial<typeof settings>) =>
-    gameService.configureAuto(panel, { ...settings, ...update });
+    void Promise.resolve(
+      gameService.configureAuto(panel, { ...settings, ...update }),
+    ).catch((error: Error) => toast.error(error.message));
   const action = async () => {
     try {
       if (bet?.status === "PENDING") {
@@ -65,31 +59,28 @@ export function useBet(panel: number, game: GameSnapshot) {
     ? "Processing…"
     : bet?.status === "UNKNOWN"
       ? "Unconfirmed"
-      : backend && bet?.status === "PENDING"
-        ? "Cancel bet"
-        : backend && !game.user
-          ? "Sign in first"
-          : backend && !bet && open
-            ? `Bet for #${game.bettingRound!.roundNumber}`
-            : bet?.status === "PENDING"
-              ? "Cancel bet"
-              : bet?.status === "ACTIVE"
-                ? "Cash out"
-                : bet?.status === "CASHED_OUT"
-                  ? "Bet won"
-                  : bet?.status === "LOST"
-                    ? "Bet lost"
-                    : bet?.status === "CANCELLED"
-                      ? "Cancelled"
-                      : open
-                        ? "Place bet"
-                        : "Next round";
+      : !game.user
+        ? "Sign in first"
+        : !bet && open
+          ? `Bet for #${game.bettingRound!.roundNumber}`
+          : bet?.status === "PENDING"
+            ? "Cancel bet"
+            : bet?.status === "ACTIVE"
+              ? "Cash out"
+              : bet?.status === "CASHED_OUT"
+                ? "Bet won"
+                : bet?.status === "LOST"
+                  ? "Bet lost"
+                  : bet?.status === "CANCELLED"
+                    ? "Cancelled"
+                    : open
+                      ? "Place bet"
+                      : "Next round";
 
   return {
     mode,
     setMode,
     settings,
-    backend,
     busy,
     bet,
     open,

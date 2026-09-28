@@ -1,29 +1,20 @@
 import { useEffect, useState } from "react";
-import { gameService } from "@/features/game/services/game.service";
-type Entry = {
-  id: number;
-  amount: string;
-  provider?: string;
-  status?: string;
-  type?: string;
-  created_at: string;
-  provider_reference?: string;
-  reference?: string;
-  balance_after?: string;
-};
+import { walletApi } from "../services/wallet.api";
+import type {
+  WalletEntry as Entry,
+  WalletResource,
+} from "../types/wallet.types";
 export function WalletActivity() {
-  const [kind, setKind] = useState("deposits"),
+  const [kind, setKind] = useState<WalletResource>("deposits"),
     [provider, setProvider] = useState("SANDBOX"),
     [amount, setAmount] = useState("1000.00");
   const [rows, setRows] = useState<Entry[]>([]),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
-  const path =
-    kind === "transactions" ? "/api/wallet/transactions" : "/api/" + kind;
   useEffect(() => {
     let active = true;
-    gameService
-      .accountRequest?.<Entry[]>(path)
+    walletApi
+      .activity(kind)
       .then((data) => {
         if (active) setRows(data);
       })
@@ -33,11 +24,11 @@ export function WalletActivity() {
     return () => {
       active = false;
     };
-  }, [path]);
+  }, [kind]);
   return (
     <section>
       <div className="segmented">
-        {["deposits", "withdrawals", "transactions"].map((k) => (
+        {(["deposits", "withdrawals", "transactions"] as const).map((k) => (
           <button
             key={k}
             disabled={busy}
@@ -60,16 +51,17 @@ export function WalletActivity() {
             setBusy(true);
             setMessage("");
             try {
-              const result = await gameService.accountRequest!<
-                Entry | { withdrawal: Entry }
-              >(path, { amount, provider });
+              const result = await walletApi.submit(
+                kind as Exclude<WalletResource, "transactions">,
+                { amount, provider },
+              );
               const entry = "withdrawal" in result ? result.withdrawal : result;
               setMessage(
                 kind === "deposits"
                   ? "Deposit: " + entry.status
                   : "Withdrawal reserved: " + entry.status,
               );
-              setRows(await gameService.accountRequest!<Entry[]>(path));
+              setRows(await walletApi.activity(kind));
             } catch (error) {
               setMessage((error as Error).message);
             } finally {

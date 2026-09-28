@@ -1,7 +1,5 @@
-import { useApp } from "@/store/app.store";
 import { ShieldCheck } from "lucide-react";
 export function GameHelp() {
-  const { backend } = useApp();
   return (
     <>
       <p>A simple flight. A perfectly timed exit.</p>
@@ -9,9 +7,9 @@ export function GameHelp() {
         <li>
           <strong>Place your bet</strong>
           <span>
-            {backend
-              ? "Choose an amount for the open upcoming round. Each panel shows the target round number."
-              : "Choose an amount during the countdown. Use either or both bet panels."}
+            {
+              "Choose an amount for the open upcoming round. Each panel shows the target round number."
+            }
           </span>
         </li>
         <li>
@@ -31,9 +29,9 @@ export function GameHelp() {
       <div className="info-box">
         <ShieldCheck size={19} />
         <span>
-          {backend
-            ? "Round state, accepted bets, and payouts come from your Go backend. Cancel during betting; cash out during flight. Automatic cash-out is not implemented."
-            : "Practice credits only. Outcomes are randomly simulated, not cryptographically verified. Auto bet repeats each round until disabled or funds run out."}
+          {
+            "Round state, accepted bets, and payouts come from your Go backend. Cancel during betting; cash out during flight. Automatic bets and cash-out targets run on the server."
+          }
         </span>
       </div>
     </>

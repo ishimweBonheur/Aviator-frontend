@@ -10,10 +10,13 @@ export interface Bet {
   autoCashOut?: number;
   cashOutMultiplier?: number;
   potentialWin: number;
+  canCancel?: boolean;
+  canCashout?: boolean;
   status: BetStatus;
 }
 export interface AutoSettings {
   enabled: boolean;
+  error?: string;
   cashOut: boolean;
   target: number;
   amount: number;

@@ -284,7 +284,7 @@ h1 {
   color: #84848f;
   font-size: 12px;
 }
-.demo-badge {
+.connection-badge {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -296,7 +296,7 @@ h1 {
   letter-spacing: 1px;
   padding: 9px 11px;
 }
-.demo-badge .pulse-dot {
+.connection-badge .pulse-dot {
   background: #dcac5e;
   box-shadow: 0 0 7px #dcac5e33;
 }
@@ -535,19 +535,6 @@ h1 {
 }
 .green-bg {
   background: #67d4a4;
-}
-.countdown-track {
-  margin: 9px auto 14px;
-  width: 130px;
-  height: 3px;
-  background: #30303a;
-  border-radius: 5px;
-  overflow: hidden;
-}
-.countdown-track > div {
-  height: 100%;
-  background: #f44565;
-  transition: width 1s linear;
 }
 .countdown {
   font-size: 75px;
@@ -1123,7 +1110,7 @@ footer button {
   height: 13px;
   background: #3b303f;
 }
-.demo-disclaimer {
+.server-disclaimer {
   font-size: 8px;
   color: #5c5364;
   text-align: center;
@@ -1595,7 +1582,7 @@ footer button {
     margin-bottom: 21px;
     position: relative;
   }
-  .demo-badge {
+  .connection-badge {
     font-size: 6px;
     padding: 5px 6px;
     gap: 4px;
@@ -1603,10 +1590,10 @@ footer button {
     right: 0;
     top: -6px;
   }
-  .demo-badge svg {
+  .connection-badge svg {
     display: none;
   }
-  .demo-badge .pulse-dot {
+  .connection-badge .pulse-dot {
     width: 3px;
     height: 3px;
   }
@@ -1814,7 +1801,7 @@ footer button {
     height: 21px;
     font-size: 7px;
   }
-  .demo-disclaimer {
+  .server-disclaimer {
     font-size: 7px;
     line-height: 1.7;
     padding: 0 15px;
@@ -1852,7 +1839,7 @@ footer button {
   h1 {
     font-size: 23px;
   }
-  .demo-badge {
+  .connection-badge {
     top: -12px;
   }
   .bet-panel {
@@ -1891,9 +1878,41 @@ footer button {
     transition: none !important;
   }
 }
- .account-history { max-height: 240px; overflow: auto; margin-top: 16px; }
- .history-entry { display: grid; gap: 4px; padding: 12px 0; border-bottom: 1px solid #ffffff18; }
- .history-entry small { color: #aaa; overflow-wrap: anywhere; }
- .fairness-details { overflow-wrap: anywhere; margin-top: 16px; }
- .fairness-details code { font-size: 12px; }
- .account-form select { padding: 10px; background: #20212b; color: white; border: 1px solid #444; border-radius: 8px; }
+.account-history {
+  max-height: 240px;
+  overflow: auto;
+  margin-top: 16px;
+}
+.history-entry {
+  display: grid;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid #ffffff18;
+}
+.history-entry small {
+  color: #aaa;
+  overflow-wrap: anywhere;
+}
+.fairness-details {
+  overflow-wrap: anywhere;
+  margin-top: 16px;
+}
+.fairness-details code {
+  font-size: 12px;
+}
+.account-form select {
+  padding: 10px;
+  background: #20212b;
+  color: white;
+  border: 1px solid #444;
+  border-radius: 8px;
+}
+
+.previous-round {
+  position: absolute;
+  bottom: 48px;
+  left: 20px;
+  right: 20px;
+  text-align: center;
+  font-size: 13px;
+}

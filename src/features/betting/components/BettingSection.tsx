@@ -1,7 +1,6 @@
-import { useApp } from "@/store/app.store";
+import type { GameSnapshot } from "@/features/game/types/game.types";
 import { BetPanel } from "./BetPanel";
-export function BettingSection() {
-  const { game } = useApp();
+export function BettingSection({ game }: { game: GameSnapshot }) {
   return (
     <div className="bet-panels">
       {[0, 1].map((panel) => (

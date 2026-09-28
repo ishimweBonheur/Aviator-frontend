@@ -5,9 +5,7 @@ import type { GameSnapshot } from "@/features/game/types/game.types";
 import { currency } from "@/utils/format";
 export function LiveBets({ game }: { game: GameSnapshot }) {
   const [tab, setTab] = useState("All bets");
-  const backend = game.mode === "backend";
-  const settled =
-    game.round.status === "FLYING" || game.round.status === "CRASHED";
+
   const rows =
     tab === "My bets"
       ? game.bets
@@ -30,23 +28,7 @@ export function LiveBets({ game }: { game: GameSnapshot }) {
                     : "In flight",
             result: b.status === "LOST" ? "Lost" : "—",
           }))
-      : game.players
-          .map((p) => ({
-            ...p,
-            won: settled && p.target <= game.round.multiplier,
-            payout: p.amount * p.target,
-            activity:
-              game.round.status === "CRASHED"
-                ? "Lost"
-                : settled
-                  ? "In flight"
-                  : "Placed",
-            result: "—",
-          }))
-          .filter((p) => tab !== "Top" || p.won)
-          .sort((a, b) =>
-            tab === "Top" ? b.amount * b.target - a.amount * a.target : 0,
-          );
+      : [];
   return (
     <aside className="live-bets">
       <div className="live-heading">
@@ -65,9 +47,7 @@ export function LiveBets({ game }: { game: GameSnapshot }) {
             onClick={() => setTab(t)}
           >
             {t === "Top" && <Trophy size={13} />} {t}
-            {t === "All bets" && (
-              <span>{backend ? "—" : game.players.length}</span>
-            )}
+            {t === "All bets" && <span>{"—"}</span>}
           </button>
         ))}
       </div>
@@ -76,12 +56,7 @@ export function LiveBets({ game }: { game: GameSnapshot }) {
           {tab === "My bets" ? "Your flight history" : "On board this round"}
         </span>
         <strong>
-          <Users size={13} />{" "}
-          {tab === "My bets"
-            ? rows.length
-            : backend
-              ? "—"
-              : game.players.length}
+          <Users size={13} /> {tab === "My bets" ? rows.length : "—"}
         </strong>
       </div>
       <div className="table-heading">
@@ -96,19 +71,17 @@ export function LiveBets({ game }: { game: GameSnapshot }) {
           <div className="empty-state">
             <Trophy size={25} />
             <strong>
-              {backend && tab !== "My bets"
+              {tab !== "My bets"
                 ? "Player feed not available"
                 : tab === "My bets"
                   ? "Your journey starts here"
                   : "Who will fly the highest?"}
             </strong>
             <span>
-              {backend && tab !== "My bets"
+              {tab !== "My bets"
                 ? "The backend does not expose public bets or leaderboard data yet."
                 : tab === "My bets"
-                  ? backend
-                    ? "Place a bet to see acknowledged results from this session."
-                    : "Place a demo bet to see your results."
+                  ? "Place a bet to see acknowledged results from this session."
                   : "Successful cash outs appear here."}
             </span>
           </div>
@@ -147,9 +120,7 @@ export function LiveBets({ game }: { game: GameSnapshot }) {
       </div>
       <div className="manifest-footer">
         <span className="pulse-dot" />{" "}
-        {backend
-          ? "Backend mode · My bets shows your account history"
-          : "Demo activity · updates every round"}
+        {"Backend mode · My bets shows your account history"}
       </div>
     </aside>
   );
