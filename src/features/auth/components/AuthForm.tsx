@@ -11,7 +11,7 @@ export function AuthForm({ admin = false }: { admin?: boolean }) {
   const auth = useSession();
   return (
     <form
-      className="account-form"
+      className="grid gap-[17px]"
       onSubmit={async (event) => {
         event.preventDefault();
         if (busy) return;
@@ -46,9 +46,10 @@ export function AuthForm({ admin = false }: { admin?: boolean }) {
             : "Sign in to use your backend wallet and place bets."}
       </p>
       {register && (
-        <label>
+        <label className="grid gap-[7px] text-xs text-[#bfaec9]">
           Username
           <input
+            className="w-full rounded-[7px] border border-[#44354c] bg-[#121117] p-3 text-[#f1ebf4]"
             name="username"
             autoComplete="username"
             maxLength={50}
@@ -57,9 +58,10 @@ export function AuthForm({ admin = false }: { admin?: boolean }) {
           />
         </label>
       )}
-      <label>
+      <label className="grid gap-[7px] text-xs text-[#bfaec9]">
         Email
         <input
+          className="w-full rounded-[7px] border border-[#44354c] bg-[#121117] p-3 text-[#f1ebf4]"
           name="email"
           type="email"
           autoComplete="email"
@@ -69,9 +71,10 @@ export function AuthForm({ admin = false }: { admin?: boolean }) {
           disabled={busy}
         />
       </label>
-      <label>
+      <label className="grid gap-[7px] text-xs text-[#bfaec9]">
         Password
         <input
+          className="w-full rounded-[7px] border border-[#44354c] bg-[#121117] p-3 text-[#f1ebf4]"
           name="password"
           type="password"
           autoComplete={register ? "new-password" : "current-password"}
@@ -81,18 +84,22 @@ export function AuthForm({ admin = false }: { admin?: boolean }) {
         />
       </label>
       {(error || (admin && auth.error)) && (
-        <p className="form-error" role="alert">
+        <p className="text-[#ff8a9f]! wrap-anywhere" role="alert">
           {error || auth.error}
         </p>
       )}
-      <button type="submit" className="primary-button" disabled={busy}>
+      <button
+        type="submit"
+        className="flex w-full items-center justify-center gap-2 rounded-[7px] bg-brand-btn p-3.5 font-semibold"
+        disabled={busy}
+      >
         <LogIn size={16} />
         {busy ? "Please wait…" : register ? "Create account" : "Sign in"}
       </button>
       {!admin && (
         <button
           type="button"
-          className="secondary-button"
+          className="mt-[13px] flex w-full items-center justify-center gap-2 rounded-[7px] border border-[#4c3a53] bg-[#28202f] p-3 text-xs"
           disabled={busy}
           onClick={() => {
             setRegister(!register);

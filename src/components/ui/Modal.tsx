@@ -20,7 +20,7 @@ export function Modal({
       if (event.key === "Tab") {
         const elements = Array.from(
           document.querySelectorAll<HTMLElement>(
-            ".modal button, .modal input, .modal select, .modal textarea, .modal a[href]",
+            '[role="dialog"] button, [role="dialog"] input, [role="dialog"] select, [role="dialog"] textarea, [role="dialog"] a[href]',
           ),
         ).filter((el) => !el.hasAttribute("disabled"));
         const first = elements[0],
@@ -45,7 +45,7 @@ export function Modal({
     <AnimatePresence>
       {modal && (
         <motion.div
-          className="modal-backdrop"
+          className="fixed inset-0 z-60 flex items-center justify-center bg-[#08080dcc] p-5 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -55,14 +55,14 @@ export function Modal({
             role="dialog"
             aria-modal="true"
             aria-labelledby="modal-title"
-            className="modal"
+            className="relative max-h-[85vh] w-[440px] max-w-full overflow-auto rounded-[18px] border border-[#423541] bg-modal p-[30px] shadow-[0_30px_100px_#0008] max-[600px]:p-[25px]"
             initial={{ y: 20, scale: 0.97 }}
             animate={{ y: 0, scale: 1 }}
             onClick={(e) => e.stopPropagation()}
           >
             <button
               ref={closeRef}
-              className="modal-close icon-button"
+              className="absolute top-[15px] right-[15px] inline-flex h-[30px] w-[30px] items-center justify-center rounded-md bg-transparent text-[#898994]"
               aria-label="Close dialog"
               onClick={() => onClose()}
             >

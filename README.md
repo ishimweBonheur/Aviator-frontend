@@ -25,11 +25,7 @@ npm run build
 npm test
 ```
 
-The Playwright configuration starts the Vite development server automatically. The live smoke test is separate because it requires PostgreSQL, Redis, migrations, and the Go server:
-
-```powershell
-npm run test:live
-```
+The Playwright configuration starts the Vite development server automatically. Tests and application code use TypeScript. Linting uses Node.js native TypeScript loading; use Node.js 24, matching the Docker build.
 
 See `P:\Aviator\LOCAL_SYSTEM.md` for the full local and Docker Compose workflow.
 

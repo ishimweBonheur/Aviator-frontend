@@ -1,4 +1,12 @@
 import { lazy, Suspense } from "react";
+const PlayerWalletPage = lazy(() =>
+  import("@/pages/Wallet/WalletPage").then((m) => ({ default: m.WalletPage })),
+);
+const FairnessPage = lazy(() =>
+  import("@/pages/Game/FairnessPage").then((m) => ({
+    default: m.FairnessPage,
+  })),
+);
 const GamePage = lazy(() =>
   import("@/pages/Game/GamePage").then((m) => ({ default: m.GamePage })),
 );
@@ -36,6 +44,11 @@ const DepositsPage = lazy(() =>
 const WithdrawalsPage = lazy(() =>
   import("@/pages/admin/payments/WithdrawalsPage").then((m) => ({
     default: m.WithdrawalsPage,
+  })),
+);
+const TransactionsPage = lazy(() =>
+  import("@/pages/admin/wallet/TransactionsPage").then((m) => ({
+    default: m.TransactionsPage,
   })),
 );
 const WalletPage = lazy(() =>
@@ -87,6 +100,7 @@ const adminPages = {
   deposits: DepositsPage,
   withdrawals: WithdrawalsPage,
   wallet: WalletPage,
+  transactions: TransactionsPage,
   "audit-logs": AuditLogsPage,
   overview: OverviewPage,
   analytics: AnalyticsPage,
@@ -95,6 +109,25 @@ const adminPages = {
 };
 export function AppRoutes() {
   const pathname = window.location.pathname;
+  if (pathname === "/fairness")
+    return (
+      <Suspense fallback={<p role="status">Loading fairness…</p>}>
+        <FairnessPage />
+      </Suspense>
+    );
+  if (
+    pathname === "/deposits" ||
+    pathname === "/withdrawals" ||
+    pathname === "/transactions"
+  ) {
+    const kind = pathname.slice(1) as
+      "deposits" | "withdrawals" | "transactions";
+    return (
+      <Suspense fallback={<p role="status">Loading wallet…</p>}>
+        <PlayerWalletPage kind={kind} />
+      </Suspense>
+    );
+  }
   if (/^\/admin(?:\/|$)/.test(pathname)) {
     const [, section = "overview", id, extra] = pathname
       .split("/")
@@ -108,7 +141,7 @@ export function AppRoutes() {
       ) : !id && Page ? (
         <Page />
       ) : (
-        <p className="admin-empty">
+        <p className="p-[30px] text-center text-[#a9adbd]">
           Page not found. <a href="/admin">Return to overview</a>
         </p>
       );

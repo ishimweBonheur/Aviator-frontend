@@ -8,7 +8,7 @@ export function SystemPage() {
     <PageFrame state={state} poll>
       {state.current && <LiveRound snapshot={state.current} />}
       {state.data && <Metrics data={state.data} />}
-      <p className="admin-note">
+      <p className="my-4 text-xs leading-[1.7] text-[#999cac]">
         WebSocket count is for the responding backend instance. Leadership
         reports the presence of the Redis engine lease.
       </p>

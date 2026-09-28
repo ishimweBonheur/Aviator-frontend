@@ -260,7 +260,7 @@ export class BackendGameService implements GameService {
           this.publish({
             round: { ...this.state.round, status: "WAITING", multiplier: 1 },
           });
-        if (!snapshot.running && snapshot.upcoming) {
+        if (snapshot.upcoming) {
           const r = snapshot.upcoming;
           const seconds = snapshot.seconds_remaining ?? 0;
           if (["BETTING_OPEN", "BETTING_CLOSED"].includes(r.status))
@@ -268,6 +268,7 @@ export class BackendGameService implements GameService {
               r.id,
               r.round_number,
               r.status === "BETTING_OPEN" ? seconds : 0,
+              r.status === "BETTING_OPEN",
             );
         }
       }
@@ -314,24 +315,32 @@ export class BackendGameService implements GameService {
         });
     }
   }
-  private openRound(id: number, roundNumber: number, seconds: number) {
+  private openRound(
+    id: number,
+    roundNumber: number,
+    seconds: number,
+    open = true,
+  ) {
     if (
       id <= this.lastClosedRound ||
       roundNumber < this.state.round.roundNumber
     )
       return;
     this.publish({
-      bettingRound: { id: String(id), roundNumber },
+      bettingRound: { id: String(id), roundNumber, open },
       countdown: seconds,
-      round: {
-        id: String(id),
-        roundNumber,
-        status: seconds > 0 ? "BETTING" : "BETTING_CLOSED",
-        multiplier: 1,
-        crashMultiplier: 0,
-        startedAt: null,
-        endedAt: null,
-      },
+      round:
+        this.state.round.status === "FLYING"
+          ? this.state.round
+          : {
+              id: String(id),
+              roundNumber,
+              status: open ? "BETTING" : "BETTING_CLOSED",
+              multiplier: 1,
+              crashMultiplier: 0,
+              startedAt: null,
+              endedAt: null,
+            },
     });
   }
   private applyRound(round: ApiRound) {
@@ -390,6 +399,11 @@ export class BackendGameService implements GameService {
         multiplier = Math.max(multiplier, this.state.round.multiplier);
       this.lastClosedRound = Math.max(this.lastClosedRound, event.round_id);
       this.publish({
+        bets: this.state.bets.map((b) =>
+          b.roundId === id && b.status === "PENDING"
+            ? { ...b, status: "ACTIVE", canCancel: false, canCashout: true }
+            : b,
+        ),
         round: {
           id,
           roundNumber: event.round_number,
@@ -429,7 +443,7 @@ export class BackendGameService implements GameService {
         this.publish({ bettingRound: undefined, countdown: 0 });
       if (!this.historyIds.has(event.round_id)) {
         this.historyIds.add(event.round_id);
-        this.publish({ history: [crash, ...this.state.history].slice(0, 30) });
+        this.publish({ history: [crash, ...this.state.history].slice(0, 54) });
       }
       if (event.round_number >= this.state.round.roundNumber)
         this.publish({
@@ -449,8 +463,6 @@ export class BackendGameService implements GameService {
       if (this.state.round.id === id)
         this.publish({
           round: { ...this.state.round, status: "WAITING", multiplier: 1 },
-          countdown: 0,
-          bettingRound: undefined,
         });
     }
     if (event.type === "ROUND_CRASHED" || event.type === "ROUND_SETTLED") {
@@ -467,9 +479,8 @@ export class BackendGameService implements GameService {
     const target = this.state.bettingRound;
     if (
       this.state.connection !== "connected" ||
-      this.state.round.status !== "BETTING" ||
       !target ||
-      this.state.countdown <= 0
+      !this.state.bettingRound?.open
     )
       throw new Error("Waiting for an open betting round");
     if (!this.state.balanceLoaded)
@@ -486,7 +497,12 @@ export class BackendGameService implements GameService {
 
     if (
       this.state.pendingPanels?.includes(panel) ||
-      this.state.bets.some((b) => b.panel === panel && b.roundId === target.id)
+      this.state.bets.some(
+        (b) =>
+          b.panel === panel &&
+          b.roundId === target.id &&
+          b.status !== "CANCELLED",
+      )
     )
       throw new Error(
         "This panel already has a bet or an unconfirmed request for that round",
@@ -521,6 +537,23 @@ export class BackendGameService implements GameService {
         bet.bet_number !== panel + 1
       )
         throw new ApiError("Invalid bet response", 0);
+      const running =
+        this.state.round.id === target.id &&
+        this.state.round.status === "FLYING";
+      this.publish({
+        bets: this.state.bets.map((b) =>
+          b.id === pending.id
+            ? {
+                ...pending,
+                id: String(bet.id),
+                status: running ? "ACTIVE" : "PENDING",
+                canCancel: !running,
+                canCashout: running,
+                autoCashOut,
+              }
+            : b,
+        ),
+      });
       await this.refreshBalance();
     } catch (error) {
       if (version !== this.authVersion) return;
@@ -643,10 +676,9 @@ export class BackendGameService implements GameService {
     if (
       !this.token ||
       this.state.connection !== "connected" ||
-      this.state.round.status !== "BETTING" ||
       !bet ||
       !bet.canCancel ||
-      this.state.countdown <= 0 ||
+      !this.state.bettingRound?.open ||
       this.state.pendingPanels?.includes(panel)
     )
       throw new Error("No cancellable bet");

@@ -5,10 +5,9 @@
   "type": "module",
   "scripts": {
     "test": "playwright test",
-    "test:live": "node live-smoke.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "lint": "eslint --flag unstable_native_nodejs_ts_config .",
     "preview": "vite preview"
   },
   "dependencies": {

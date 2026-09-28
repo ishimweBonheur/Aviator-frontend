@@ -32,33 +32,33 @@ export function LiveRound({ snapshot }: { snapshot: Row }) {
       : undefined;
   const betting = ["BETTING_OPEN", "BETTING_CLOSED"].includes(status);
   return (
-    <section className="admin-card">
-      <h2>Live round monitor</h2>
-      <p className="admin-note">
+    <section className="mb-[18px] min-w-0 rounded-xl border border-[#2c2e39] bg-[#191a22] p-5 max-[650px]:p-3.5">
+      <h2 className="mb-[18px] text-[15px]">Live round monitor</h2>
+      <p className="my-4 text-xs leading-[1.7] text-[#999cac]">
         {live
           ? "Connected to game events"
           : "Showing last server snapshot; waiting for game events"}
       </p>
-      <div className="admin-live">
+      <div className="admin-live grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-5">
         <div>
-          <span>Current multiplier</span>
-          <strong>{multiplier ? String(multiplier) + "×" : "—"}</strong>
+          <span className="mb-3 block text-[11px] tracking-[0.5px] text-[#9699a9] uppercase">Current multiplier</span>
+          <strong className="wrap-anywhere">{multiplier ? String(multiplier) + "×" : "—"}</strong>
         </div>
         <div>
-          <span>Current round</span>
-          <strong>{current}</strong>
+          <span className="mb-3 block text-[11px] tracking-[0.5px] text-[#9699a9] uppercase">Current round</span>
+          <strong className="wrap-anywhere">{current}</strong>
         </div>
         <div>
-          <span>Upcoming round</span>
-          <strong>
+          <span className="mb-3 block text-[11px] tracking-[0.5px] text-[#9699a9] uppercase">Upcoming round</span>
+          <strong className="wrap-anywhere">
             {betting
               ? "#" + (live ? event.roundNumber : upcoming?.round_number)
               : "None"}
           </strong>
         </div>
         <div>
-          <span>Betting countdown</span>
-          <strong>
+          <span className="mb-3 block text-[11px] tracking-[0.5px] text-[#9699a9] uppercase">Betting countdown</span>
+          <strong className="wrap-anywhere">
             {betting
               ? String(
                   live
@@ -69,8 +69,8 @@ export function LiveRound({ snapshot }: { snapshot: Row }) {
           </strong>
         </div>
         <div>
-          <span>Last reported betting close</span>
-          <strong>
+          <span className="mb-3 block text-[11px] tracking-[0.5px] text-[#9699a9] uppercase">Last reported betting close</span>
+          <strong className="wrap-anywhere">
             {upcoming?.betting_closes_at
               ? new Date(String(upcoming.betting_closes_at)).toLocaleString()
               : "—"}

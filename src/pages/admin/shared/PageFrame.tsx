@@ -17,18 +17,24 @@ export function PageFrame({
 }) {
   return (
     <>
-      <div className="admin-toolbar">
-        <p>
+      <div className="mb-[18px] flex items-center justify-between gap-3">
+        <p className="text-xs leading-[1.7] text-[#999cac]">
           {state.updated ? "Last updated " + state.updated : "Loading data…"}
           {poll && " · refreshes every 10s"}
         </p>
-        <button disabled={state.loading} onClick={state.refresh}>
+        <button
+          className="inline-flex items-center justify-center gap-[7px] rounded-[7px] border border-[#393b47] bg-[#2c2e39] px-[15px] py-2.5"
+          disabled={state.loading}
+          onClick={state.refresh}
+        >
           <RefreshCw size={15} /> Refresh
         </button>
       </div>
       {filters && (
         <Filters
+          key={state.query}
           fields={filters}
+          query={state.query}
           onApply={state.apply}
           onError={state.setError}
         />
@@ -37,7 +43,7 @@ export function PageFrame({
         <ErrorNotice message={state.error} retry={state.refresh} />
       )}
       {state.loading && (
-        <p role="status" className="admin-empty">
+        <p role="status" className="p-[30px] text-center text-[#a9adbd]">
           Loading…
         </p>
       )}

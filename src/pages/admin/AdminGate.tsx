@@ -7,7 +7,6 @@ import { adminRequest } from "./shared/admin.api";
 import { ErrorNotice } from "./shared/ErrorNotice";
 import { AdminAccessContext } from "./shared/admin-access.context";
 import { AdminLayout } from "@/layouts/AdminLayout";
-import "./admin.css";
 export function AdminGate({
   children,
   section,
@@ -51,15 +50,19 @@ export function AdminGate({
   }, [auth.user, auth.revision, attempt]);
   if (!auth.user)
     return (
-      <div className="admin-gate admin-card">
-        <h1>Admin sign in</h1>
+      <div className="mx-auto my-[70px] max-w-[460px] min-w-0 rounded-xl border border-[#2c2e39] bg-[#191a22] p-[30px] max-[650px]:mx-[15px] max-[650px]:my-[25px]">
+        <h1 className="mt-2.5 mb-5 text-[30px] font-[650] tracking-[-1.05px]">
+          Admin sign in
+        </h1>
         <AuthForm admin />
-        <a href="/">Return to game</a>
+        <a className="mt-5 block text-admin-link" href="/">
+          Return to game
+        </a>
       </div>
     );
   if (!access || access.revision !== auth.revision)
     return (
-      <p className="admin-empty" role="status">
+      <p className="p-[30px] text-center text-[#a9adbd]" role="status">
         Checking administrator access…
       </p>
     );
@@ -67,8 +70,10 @@ export function AdminGate({
     const forbidden =
       isAuthorizationError(access.error) && access.error.status === 403;
     return (
-      <div className="admin-gate admin-card">
-        <h1>Admin access unavailable</h1>
+      <div className="mx-auto my-[70px] max-w-[460px] min-w-0 rounded-xl border border-[#2c2e39] bg-[#191a22] p-[30px] max-[650px]:mx-[15px] max-[650px]:my-[25px]">
+        <h1 className="mt-2.5 mb-5 text-[30px] font-[650] tracking-[-1.05px]">
+          Admin access unavailable
+        </h1>
         {forbidden && (
           <p>
             You are signed in as <strong>{auth.user.email}</strong>, but the
@@ -84,10 +89,15 @@ export function AdminGate({
             setAttempt((n) => n + 1);
           }}
         />
-        <button onClick={session.logout}>
+        <button
+          className="inline-flex items-center justify-center gap-[7px] rounded-[7px] border border-[#393b47] bg-[#2c2e39] px-[15px] py-2.5"
+          onClick={session.logout}
+        >
           {forbidden ? "Sign in with another account" : "Sign out"}
         </button>
-        <a href="/">Return to game</a>
+        <a className="mt-5 block text-admin-link" href="/">
+          Return to game
+        </a>
       </div>
     );
   }

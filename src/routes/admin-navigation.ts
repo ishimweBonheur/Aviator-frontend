@@ -8,6 +8,7 @@ export const adminSections = [
   "rounds",
   "deposits",
   "withdrawals",
+  "transactions",
   "wallet",
   "analytics",
   "system",

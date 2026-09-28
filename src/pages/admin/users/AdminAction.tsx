@@ -32,7 +32,7 @@ export function AdminAction({
         User #{userId}
       </h2>
       {confirmed ? (
-        <div className="account-form">
+        <div className="grid gap-[17px]">
           <p>Confirm this operation:</p>
           {Object.entries(confirmed)
             .filter(([key]) => key !== "reference")
@@ -43,12 +43,12 @@ export function AdminAction({
             ))}
           <p>This action is recorded in the administrator audit log.</p>
           {error && (
-            <p role="alert" className="form-error">
+            <p role="alert" className="text-[#ff8a9f]! wrap-anywhere">
               {error}
             </p>
           )}
           <button
-            className="primary-button"
+            className="flex w-full items-center justify-center gap-2 rounded-[7px] bg-brand-btn p-3.5 font-semibold"
             disabled={busy}
             onClick={async () => {
               setBusy(true);
@@ -71,7 +71,7 @@ export function AdminAction({
             {busy ? "Saving…" : "Confirm action"}
           </button>
           <button
-            className="secondary-button"
+            className="mt-[13px] flex w-full items-center justify-center gap-2 rounded-[7px] border border-[#4c3a53] bg-[#28202f] p-3 text-xs"
             disabled={busy}
             onClick={onClose}
           >
@@ -80,7 +80,7 @@ export function AdminAction({
         </div>
       ) : (
         <form
-          className="account-form"
+          className="grid gap-[17px]"
           onSubmit={(e) => {
             e.preventDefault();
             const values = Object.fromEntries(new FormData(e.currentTarget));
@@ -89,16 +89,21 @@ export function AdminAction({
         >
           {kind === "wallet" ? (
             <>
-              <label>
+              <label className="grid gap-[7px] text-xs text-[#bfaec9]">
                 Direction
-                <select name="direction" aria-label="Direction">
+                <select
+                  className="min-w-0 max-w-full rounded-md border border-[#3b3d49] bg-[#111219] p-2.5 text-[#eeeef4] focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-brand"
+                  name="direction"
+                  aria-label="Direction"
+                >
                   <option>CREDIT</option>
                   <option>DEBIT</option>
                 </select>
               </label>
-              <label>
+              <label className="grid gap-[7px] text-xs text-[#bfaec9]">
                 Amount (RWF)
                 <input
+                  className="w-full rounded-[7px] border border-[#44354c] bg-[#121117] p-3 text-[#f1ebf4]"
                   name="amount"
                   inputMode="decimal"
                   pattern="[0-9]+(\.[0-9]{1,2})?"
@@ -107,20 +112,32 @@ export function AdminAction({
               </label>
             </>
           ) : (
-            <label>
+            <label className="grid gap-[7px] text-xs text-[#bfaec9]">
               Status
-              <select name="status" aria-label="Status">
+              <select
+                className="min-w-0 max-w-full rounded-md border border-[#3b3d49] bg-[#111219] p-2.5 text-[#eeeef4] focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-brand"
+                name="status"
+                aria-label="Status"
+              >
                 <option>ACTIVE</option>
                 <option>SUSPENDED</option>
                 <option>BLOCKED</option>
               </select>
             </label>
           )}
-          <label>
+          <label className="grid gap-[7px] text-xs text-[#bfaec9]">
             Reason
-            <input name="reason" minLength={3} maxLength={500} required />
+            <input
+              className="w-full rounded-[7px] border border-[#44354c] bg-[#121117] p-3 text-[#f1ebf4]"
+              name="reason"
+              minLength={3}
+              maxLength={500}
+              required
+            />
           </label>
-          <button className="primary-button">Review action</button>
+          <button className="flex w-full items-center justify-center gap-2 rounded-[7px] bg-brand-btn p-3.5 font-semibold">
+            Review action
+          </button>
         </form>
       )}
     </Modal>

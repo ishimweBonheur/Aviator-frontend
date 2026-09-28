@@ -9,7 +9,7 @@ export function AuditLogsPage() {
         {
           name: "action",
           label: "Action",
-          options: ["STATUS", "WALLET_ADJUSTMENT"],
+          options: ["STATUS", "WALLET_ADJUSTMENT", "ROLE_CHANGE", "ADMIN_CREATED"],
           emptyLabel: "All actions",
         },
         referenceFilter,

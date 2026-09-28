@@ -18,7 +18,7 @@ export interface GameSnapshot {
   error?: string;
   user?: SessionUser;
   balanceLoaded?: boolean;
-  bettingRound?: { id: string; roundNumber: number };
+  bettingRound?: { id: string; roundNumber: number; open: boolean };
   pendingPanels?: number[];
   round: GameRound;
   countdown: number;

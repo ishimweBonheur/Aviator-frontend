@@ -14,7 +14,7 @@ export function useAdminData(
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [version, setVersion] = useState(0);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(() => window.location.search.slice(1));
   const [page, setPage] = useState(1);
   const [updated, setUpdated] = useState("");
   const refresh = useCallback(() => {
@@ -70,7 +70,13 @@ export function useAdminData(
     updated,
     refresh,
     page,
+    query,
     apply: (value: string) => {
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + (value ? "?" + value : ""),
+      );
       setQuery(value);
       setPage(1);
       refresh();

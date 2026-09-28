@@ -2,10 +2,9 @@ import { useGameContext } from "@/features/game/state/game.context";
 import { GameHelp } from "@/features/game/components/GameHelp";
 import { Settings } from "@/features/settings/components/Settings";
 import { useCallback } from "react";
-import { Wallet, History, Settings2, Users, Plane } from "lucide-react";
+import { Wallet, Settings2, Users, Plane } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { PlayerAccount } from "./components/PlayerAccount";
-import { FairnessView } from "@/features/game/components/FairnessView";
 import { IntegrationStatus } from "@/features/game/components/IntegrationStatus";
 export function GameDialogs() {
   const { game, modal, setModal, sound, reduced, setReduced } =
@@ -13,11 +12,9 @@ export function GameDialogs() {
   const close = useCallback(() => setModal(null), [setModal]);
   return (
     <Modal modal={modal} onClose={close}>
-      <span className="modal-symbol">
+      <span className="mb-5 grid h-[45px] w-[45px] place-items-center rounded-xl bg-[#f4456518] text-[#f36583]">
         {modal === "wallet" ? (
           <Wallet />
-        ) : modal === "history" ? (
-          <History />
         ) : modal === "settings" ? (
           <Settings2 />
         ) : modal === "profile" ? (
@@ -26,18 +23,19 @@ export function GameDialogs() {
           <Plane />
         )}
       </span>
-      <h2 id="modal-title">
+      <h2
+        id="modal-title"
+        className="mb-3 text-[23px] tracking-[-0.7px] max-[600px]:text-[21px]"
+      >
         {modal === "integration"
           ? "Backend integration"
           : modal === "wallet"
             ? "Fuel your next flight"
-            : modal === "history"
-              ? "Recent flights"
-              : modal === "settings"
-                ? "Your cockpit"
-                : modal === "profile"
-                  ? "Your account"
-                  : "Ready for takeoff?"}
+            : modal === "settings"
+              ? "Your cockpit"
+              : modal === "profile"
+                ? "Your account"
+                : "Ready for takeoff?"}
       </h2>
       {modal === "integration" && <IntegrationStatus />}
       {(modal === "wallet" || modal === "profile") && (
@@ -53,8 +51,6 @@ export function GameDialogs() {
           onIntegration={() => setModal("integration")}
         />
       )}
-
-      {modal === "history" && <FairnessView />}
     </Modal>
   );
 }

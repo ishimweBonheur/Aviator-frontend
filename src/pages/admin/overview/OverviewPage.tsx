@@ -1,7 +1,6 @@
 import { useAdminData } from "../shared/useAdminData";
 import { PageFrame } from "../shared/PageFrame";
 import { Metrics } from "../shared/Metrics";
-import { AnalyticsSummary } from "../analytics/AnalyticsSummary";
 import { LiveRound } from "../system/LiveRound";
 const overviewKeys = [
   "total_users",
@@ -11,9 +10,7 @@ const overviewKeys = [
   "withdrawals",
   "total_wagered",
   "total_payouts",
-  "ggr",
-  "rtp_percent",
-  "house_margin_percent",
+  "total_bets",
   "pending_deposits",
   "pending_withdrawals",
   "active_bets",
@@ -21,19 +18,19 @@ const overviewKeys = [
 
 export function OverviewPage() {
   const state = useAdminData("overview", {
-    charts: true,
     live: true,
     poll: true,
   });
   return (
-    <PageFrame state={state} filters={[]} poll>
-      <p className="admin-note">
-        All-time overview · monetary values in RWF. Charts use the selected
-        period.
+    <PageFrame state={state} poll>
+      <p className="my-4 text-xs leading-[1.7] text-[#999cac]">
+        All-time platform overview · monetary values in RWF.
+        <a className="ml-2 text-admin-link underline" href="/admin/analytics">
+          View trends and revenue analysis
+        </a>
       </p>
       {state.data && <Metrics data={state.data} keys={overviewKeys} />}
       {state.current && <LiveRound snapshot={state.current} />}
-      {state.analytics && <AnalyticsSummary daily={state.analytics.daily} />}
     </PageFrame>
   );
 }

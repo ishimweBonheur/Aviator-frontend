@@ -144,11 +144,10 @@ Every source file and retained browser test is listed below. Grouped root toolin
 ## Root and static resources
 
 - package.json/package-lock.json: existing dependency and command definitions; no new runtime dependencies.
-- vite.config.ts, tsconfig*.json, eslint.config.js, playwright.config.ts: build, aliases, static analysis and browser test infrastructure retained. The tests directory remains the Playwright root and discovers the reorganized suites.
+- vite.config.ts, tsconfig*.json, eslint.config.ts, playwright.config.ts: build, aliases, static analysis and browser test infrastructure retained. The tests directory remains the Playwright root and discovers the reorganized suites.
 - index.html and public/: application entry/static assets retained.
 - Dockerfile/nginx.conf: deployment shell and history fallback retained; route URLs are unchanged.
 - .env.example and local environment: existing configuration retained; no credentials or backend data changed by this refactor.
-- live-smoke.mjs: existing real-backend smoke harness retained; requires running backend services.
 - README.md/ARCHITECTURE.md: updated ownership, route/test locations and access troubleshooting.
 - ADMIN_GAP_ANALYSIS.md: existing capability report retained; backend contracts/migrations remain unchanged by this refactor.
 

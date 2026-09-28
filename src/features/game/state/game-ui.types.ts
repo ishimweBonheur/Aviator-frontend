@@ -1,2 +1,2 @@
 export type AppModal =
-  "wallet" | "profile" | "settings" | "help" | "history" | "integration" | null;
+  "wallet" | "profile" | "settings" | "help" | "integration" | null;

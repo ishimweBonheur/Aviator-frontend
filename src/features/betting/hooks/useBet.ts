@@ -9,24 +9,25 @@ export function useBet(panel: number, game: GameSnapshot) {
   const settings = game.auto[panel];
 
   const busy = !!game.pendingPanels?.includes(panel);
-  const active = game.bets.find(
+  const currentBet = game.bets.find(
+    (b) => b.panel === panel && b.roundId === game.round.id,
+  );
+  const queuedBet = game.bets.find(
     (b) =>
       b.panel === panel &&
-      b.roundId === game.round.id &&
-      ["ACTIVE", "UNKNOWN"].includes(b.status),
+      b.roundId === game.bettingRound?.id &&
+      b.status !== "CANCELLED",
   );
+  const runningBet =
+    game.round.status === "FLYING" &&
+    currentBet &&
+    ["ACTIVE", "UNKNOWN"].includes(currentBet.status)
+      ? currentBet
+      : undefined;
   const bet =
-    active ??
-    game.bets.find(
-      (b) => b.panel === panel && b.roundId === game.bettingRound?.id,
-    ) ??
-    (!game.bettingRound
-      ? game.bets.find((b) => b.panel === panel && b.roundId === game.round.id)
-      : undefined);
+    runningBet ?? queuedBet ?? (!game.bettingRound ? currentBet : undefined);
   const open =
-    game.round.status === "BETTING" &&
-    game.countdown > 0 &&
-    !!game.bettingRound &&
+    !!game.bettingRound?.open &&
     game.connection === "connected" &&
     !!game.user &&
     !!game.balanceLoaded;
@@ -55,29 +56,32 @@ export function useBet(panel: number, game: GameSnapshot) {
       toast.error((error as Error).message);
     }
   };
-  const label = busy
-    ? "Processing…"
-    : bet?.status === "UNKNOWN"
-      ? "Unconfirmed"
-      : !game.user
-        ? "Sign in first"
-        : !bet && open
-          ? `Bet for #${game.bettingRound!.roundNumber}`
-          : bet?.status === "PENDING"
-            ? "Cancel bet"
-            : bet?.status === "ACTIVE"
-              ? "Cash out"
-              : bet?.status === "CASHED_OUT"
-                ? "Bet won"
-                : bet?.status === "LOST"
-                  ? "Bet lost"
-                  : bet?.status === "CANCELLED"
-                    ? "Cancelled"
-                    : open
-                      ? "Place bet"
-                      : "Next round";
+  const label =
+    bet?.status === "PENDING" ||
+    (busy && bet?.status === "UNKNOWN" && bet.roundId === game.bettingRound?.id)
+      ? "CANCEL"
+      : bet?.status === "ACTIVE"
+        ? "CASH OUT"
+        : "BET";
+  const resultBet =
+    currentBet && ["CASHED_OUT", "LOST"].includes(currentBet.status)
+      ? currentBet
+      : bet;
+  const finished =
+    resultBet?.status === "CASHED_OUT"
+      ? "Bet won"
+      : resultBet?.status === "LOST"
+        ? "Bet lost"
+        : bet?.status === "CANCELLED"
+          ? "Cancelled"
+          : bet?.status === "UNKNOWN" && !busy
+            ? "Bet unconfirmed"
+            : undefined;
 
   return {
+    currentBet,
+    queuedBet,
+    finished,
     mode,
     setMode,
     settings,

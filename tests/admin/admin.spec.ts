@@ -179,7 +179,7 @@ test("overview uses API values and fits mobile and desktop", async ({
   await expect(page.getByText("Player wallet liability")).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Daily financial activity" }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   for (const width of [320, 375, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     await expect
@@ -211,63 +211,60 @@ test("users paginate and apply search filters", async ({ page }) => {
     page.getByRole("cell", { name: "pilot", exact: true }),
   ).toBeVisible();
 });
-test("admins can change other roles and create administrator accounts", async ({
+test("client details identify the selected account before confirming a role change", async ({
   page,
 }) => {
   const mutations = await setup(page);
-  let playerRole = "PLAYER";
-  await page.route("**/api/admin/users?**", (route) =>
+  let role = "PLAYER";
+  await page.route(/\/api\/admin\/users\/2(?:\?.*)?$/, (route) =>
     route.fulfill({
       json: {
-        items: [
-          { id: 1, username: "operator", role: "ADMIN", status: "ACTIVE" },
-          { id: 2, username: "pilot", role: playerRole, status: "ACTIVE" },
-        ],
-        total: 2,
-        page: 1,
-        page_size: 25,
+        user: {
+          id: 2,
+          username: "pilot",
+          email: "pilot@example.test",
+          role,
+          status: "ACTIVE",
+          balance: "1000.00",
+        },
+        bets: [],
+        deposits: [],
+        withdrawals: [],
+        "wallet-transactions": [],
       },
     }),
   );
   await page.route("**/api/admin/users/2/role", async (route) => {
-    const body = route.request().postDataJSON() as { role: string };
-    mutations.push({ method: "PATCH", body });
-    playerRole = body.role;
+    const body = route.request().postDataJSON();
+    role = body.role;
+    mutations.push({ method: route.request().method(), body });
     await route.fulfill({ json: { status: "updated" } });
   });
-
   await page.goto("/admin/users");
   await expect(
-    page.getByRole("row", { name: /operator/ }).getByRole("button", {
-      name: "Make player",
-    }),
-  ).toBeDisabled();
-  await page.getByRole("button", { name: "Make admin" }).click();
+    page.getByRole("button", { name: "Create administrator" }),
+  ).toHaveCount(0);
+  await page.getByRole("link", { name: "View Client Details" }).click();
+  await expect(page).toHaveURL(/\/admin\/users\/2$/);
+  await page.getByRole("button", { name: "Grant admin privileges" }).click();
+  await expect(page.getByRole("dialog")).toContainText("pilot");
+  await expect(page.getByRole("dialog")).toContainText("User ID 2");
+  expect(mutations).toHaveLength(0);
   await page.getByRole("button", { name: "Confirm role change" }).click();
-  await expect(page.getByRole("button", { name: "Make player" }).last()).toBeVisible();
-  await page.getByRole("button", { name: "Make player" }).last().click();
+  await expect(
+    page.getByRole("button", { name: "Remove admin privileges" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Remove admin privileges" }).click();
   await page.getByRole("button", { name: "Confirm role change" }).click();
-  await expect(page.getByRole("button", { name: "Make admin" })).toBeVisible();
-  expect(mutations.slice(0, 2)).toEqual([
+  await expect(
+    page.getByRole("button", { name: "Grant admin privileges" }),
+  ).toBeVisible();
+  expect(mutations).toEqual([
     { method: "PATCH", body: { role: "ADMIN" } },
     { method: "PATCH", body: { role: "PLAYER" } },
   ]);
-
-  await page.getByRole("button", { name: "Create administrator" }).click();
-  await page.getByLabel("Username").fill("new-operator");
-  await page.getByLabel("Email").fill("new-operator@example.test");
-  await page.getByLabel("Temporary password").fill("password123");
-  await page.getByRole("button", { name: "Create admin account" }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  expect(mutations[2]).toEqual({
-    method: "POST",
-    body: {
-      username: "new-operator",
-      email: "new-operator@example.test",
-      password: "password123",
-    },
-  });
 });
+
 test("wallet adjustment requires review and explicit confirmation", async ({
   page,
 }) => {
@@ -317,6 +314,7 @@ test("all list, analytics and system routes load; config is read only", async ({
     "deposits",
     "withdrawals",
     "wallet",
+    "transactions",
     "analytics",
     "system",
     "config",
@@ -519,4 +517,190 @@ test("admin monitor follows server ticks then stops at crash and displays countd
   });
   await expect(monitor).toContainText("BETTING_OPEN");
   await expect(monitor).toContainText("5s");
+});
+
+test("wallet history has its own route and stays scoped to the selected user", async ({
+  page,
+}) => {
+  await setup(page);
+  const queries: string[] = [];
+  await page.route("**/api/admin/wallet-transactions?**", (route) => {
+    queries.push(route.request().url());
+    return route.fulfill({
+      json: {
+        items: [
+          {
+            id: 21,
+            username: "pilot",
+            user_id: 2,
+            type: "BET",
+            amount: "50.00",
+            reference: "BET-21",
+            balance_before: "1000.00",
+            balance_after: "950.00",
+            created_at: "2026-09-28T10:00:00Z",
+          },
+        ],
+        total: 1,
+        page: 1,
+        page_size: 25,
+      },
+    });
+  });
+  await page.goto("/admin/wallet");
+  await expect(
+    page.getByRole("columnheader", { name: "Username", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("columnheader", { name: "User ID", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "View History" }).click();
+  await expect(page).toHaveURL(/\/admin\/transactions\?user_id=2$/);
+  await expect(page.getByLabel("User ID", { exact: true })).toHaveValue("2");
+  await expect(page.getByRole("table")).toContainText("BET-21");
+  expect(
+    queries.every((q) => new URL(q).searchParams.get("user_id") === "2"),
+  ).toBe(true);
+  await page.getByRole("button", { name: "Reset", exact: true }).click();
+  await expect(page.getByLabel("User ID", { exact: true })).toHaveValue("");
+  await expect
+    .poll(() => new URL(queries.at(-1)!).searchParams.has("user_id"))
+    .toBe(false);
+});
+
+test("financial and bet lists put backend usernames first", async ({
+  page,
+}) => {
+  await setup(page);
+  for (const resource of [
+    "bets",
+    "auto-bets",
+    "auto-cashouts",
+    "deposits",
+    "withdrawals",
+  ]) {
+    await page.route(`**/api/admin/${resource}?**`, (route) =>
+      route.fulfill({
+        json: {
+          items: [
+            {
+              id: 20,
+              user_id: 2,
+              username: "pilot",
+              bet_number: 1,
+              amount: "50.00",
+              status: "ACTIVE",
+              placed_at: "2026-09-28T10:00:00Z",
+            },
+          ],
+          total: 1,
+          page: 1,
+          page_size: 25,
+        },
+      }),
+    );
+    await page.goto(`/admin/${resource}`);
+    await expect(page.getByRole("columnheader").first()).toHaveText("Username");
+    await expect(
+      page.getByRole("table").getByRole("link", { name: "pilot" }),
+    ).toHaveAttribute("href", "/admin/users/2");
+    await expect(page.locator("time")).toHaveAttribute(
+      "datetime",
+      "2026-09-28T10:00:00Z",
+    );
+  }
+});
+
+test("audit details wrap and the sidebar stays visible as main content scrolls", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.route("**/api/admin/audit-logs?**", (route) =>
+    route.fulfill({
+      json: {
+        items: Array.from({ length: 25 }, (_, i) => ({
+          id: i + 1,
+          admin_id: 1,
+          admin_username: "operator",
+          user_id: 2,
+          username: "pilot",
+          action: "ROLE_CHANGE",
+          details: {
+            before: "PLAYER",
+            after: "ADMIN",
+            reason: "Detailed audit reason ".repeat(15),
+          },
+          reference: "long-reference-".repeat(25),
+          created_at: "2026-09-28T10:00:00Z",
+        })),
+        total: 25,
+        page: 1,
+        page_size: 25,
+      },
+    }),
+  );
+  await page.goto("/admin/audit-logs");
+  await expect(page.getByRole("table")).toContainText("Role Change");
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 800 });
+    const aside = page.locator("aside");
+    const before = await aside.boundingBox();
+    await page
+      .getByRole("main", { name: "Admin content" })
+      .evaluate((el) => (el.scrollTop = 800));
+    const after = await aside.boundingBox();
+    expect(after?.y).toBe(before?.y);
+    expect(
+      await page
+        .getByRole("main", { name: "Admin content" })
+        .evaluate((el) => el.scrollTop),
+    ).toBeGreaterThan(0);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page
+      .getByRole("main", { name: "Admin content" })
+      .evaluate((el) => (el.scrollTop = 0));
+  }
+  await page.screenshot({ path: "test-results/audit-mobile.png" });
+});
+
+test("analytics contains trends while overview only requests operational summary", async ({
+  page,
+}) => {
+  await setup(page);
+  const requests: string[] = [];
+  page.on("request", (req) => requests.push(new URL(req.url()).pathname));
+  await page.goto("/admin");
+  await expect(page.getByText("Player wallet liability")).toBeVisible();
+  expect(requests).not.toContain("/api/admin/analytics");
+  await page.goto("/admin/analytics");
+  await expect(
+    page.getByRole("heading", { name: "Daily financial activity" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Bet volume and player activity" }),
+  ).toBeVisible();
+  await expect(page.getByText("Player wallet liability")).toHaveCount(0);
+});
+
+test("configuration shows actual server values and never pretends to update unsupported settings", async ({
+  page,
+}) => {
+  const mutations = await setup(page);
+  await page.goto("/admin/config");
+  await expect(page.getByLabel("HOUSE_EDGE current value")).toHaveValue("3");
+  await expect(page.getByLabel("MIN_BET_AMOUNT current value")).toHaveValue(
+    "50.00",
+  );
+  await expect(
+    page.getByRole("button", { name: "Update unavailable" }),
+  ).toHaveCount(8);
+  for (const button of await page
+    .getByRole("button", { name: "Update unavailable" })
+    .all())
+    await expect(button).toBeDisabled();
+  expect(mutations).toHaveLength(0);
 });

@@ -9,4 +9,5 @@ export interface WalletEntry {
   provider_reference?: string;
   reference?: string;
   balance_after?: string;
+  balance_before?: string;
 }
