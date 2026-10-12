@@ -22,11 +22,11 @@ export function Header() {
       <div className="flex items-center gap-6">
         <a
           href="/"
-          className="flex items-center text-[24px] font-extrabold leading-none tracking-[-1.5px] max-[600px]:text-[20px]"
+          className="flex items-center  font-extrabold leading-none tracking-[-1.5px] "
           aria-label="Altitude home"
         >
           <span>
-            altitude<span className="text-brand"></span>
+            <img src="/words_logo.png" alt="Words Logo" width={200} />
           </span>
         </a>
       </div>

@@ -1,8 +1,43 @@
 import type { ReactNode } from "react";
-import { ArrowLeft, LayoutDashboard, ShieldCheck } from "lucide-react";
+import {
+  ArrowLeft,
+  LayoutDashboard,
+  ShieldCheck,
+  Users,
+  Gamepad2,
+  Bot,
+  Zap,
+  History,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Wallet,
+  Receipt,
+  FileText,
+  BarChart3,
+  Server,
+  Settings,
+} from "lucide-react";
 import { session } from "@/features/auth/services/session";
 import { label } from "@/pages/admin/shared/display";
 import { adminSections as sections } from "@/routes/admin-navigation";
+
+const sectionIcons: Record<string, ReactNode> = {
+  overview: <LayoutDashboard size={16} />,
+  users: <Users size={16} />,
+  bets: <Gamepad2 size={16} />,
+  "auto-bets": <Bot size={16} />,
+  "auto-cashouts": <Zap size={16} />,
+  rounds: <History size={16} />,
+  deposits: <ArrowDownToLine size={16} />,
+  withdrawals: <ArrowUpFromLine size={16} />,
+  wallet: <Wallet size={16} />,
+  transactions: <Receipt size={16} />,
+  "audit-logs": <FileText size={16} />,
+  analytics: <BarChart3 size={16} />,
+  system: <Server size={16} />,
+  config: <Settings size={16} />,
+};
+
 export function AdminLayout({
   section,
   id,
@@ -22,7 +57,6 @@ export function AdminLayout({
           href="/admin"
         >
           <ShieldCheck className="text-brand" /> altitude
-          <span className="text-[9px] text-brand">ADMIN</span>
         </a>
         <nav
           className="min-w-0 grid gap-[5px] max-[650px]:flex max-[650px]:overflow-x-auto"
@@ -35,7 +69,7 @@ export function AdminLayout({
               key={item}
               href={item === "overview" ? "/admin" : `/admin/${item}`}
             >
-              <LayoutDashboard size={16} />
+              {sectionIcons[item] || <LayoutDashboard size={16} />}
               {label(item)}
             </a>
           ))}

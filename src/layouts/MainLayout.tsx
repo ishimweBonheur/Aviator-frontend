@@ -16,6 +16,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   return (
     <div
       className={`
+        flex min-h-screen flex-col
         bg-[radial-gradient(ellipse_at_45%_5%,#23172033,transparent_45%)]
 
         ${reduced ? "reduce-motion" : ""}
@@ -25,7 +26,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       <main
         className="
-          w-full
+          flex w-full min-h-0 flex-1 flex-col
           px-[3.2%]
           pt-5
           pb-1

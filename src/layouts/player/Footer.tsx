@@ -6,7 +6,7 @@ export function Footer() {
   const { setModal } = useGameContext();
 
   return (
-    <>
+    <div className="mt-auto">
       <footer
         role="contentinfo"
         className="
@@ -182,6 +182,6 @@ export function Footer() {
         Connected to your backend. Balances and bets are server-managed. SANDBOX
         deposits are for local testing; external payments remain pending.
       </div>
-    </>
+    </div>
   );
 }

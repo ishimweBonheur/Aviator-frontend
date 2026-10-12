@@ -9,7 +9,7 @@ import type { WalletResource } from "@/features/wallet/types/wallet.types";
 function Content({ kind }: { kind: WalletResource }) {
   const { game } = useGameContext();
   return (
-    <section className="mx-auto max-w-6xl rounded-xl border border-[#2c2e39] bg-[#191a22] p-5 max-[600px]:p-3.5">
+    <section className="w-full mx-auto max-w-6xl rounded-xl border border-[#2c2e39] bg-[#191a22] p-5 max-[600px]:p-3.5">
       <a href="/" className="text-xs text-admin-link">
         Back to game
       </a>
