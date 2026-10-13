@@ -1,24 +1,36 @@
-import { useEffect, useRef } from "react";
+﻿import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { currency } from "@/utils/format";
 import type { GameSnapshot } from "@/features/game/types/game.types";
+import type { BetStatus } from "@/features/betting/types/betting.types";
 
 export function useGameNotifications(game: GameSnapshot) {
-  const previous = useRef(new Map<string, string>());
-  const previousStatus = useRef(game.round.status);
+  const previous = useRef(new Map<string, BetStatus>());
+  const previousUser = useRef(game.user?.id);
   useEffect(() => {
-    game.bets.forEach((b) => {
+    const userId = game.user?.id;
+    if (previousUser.current !== userId || userId === undefined) {
+      previous.current.clear();
+      previousUser.current = userId;
+    }
+    if (userId === undefined) return;
+
+    const next = new Map<string, BetStatus>();
+    game.bets.forEach((bet) => {
+      if (bet.userId !== String(userId)) return;
+      const status = previous.current.get(bet.id);
+      // History arrives after login: only announce bets seen in progress.
       if (
-        b.status === "CASHED_OUT" &&
-        previous.current.get(b.id) !== "CASHED_OUT"
-      )
+        bet.status === "CASHED_OUT" &&
+        (status === "ACTIVE" || status === "PENDING" || status === "UNKNOWN")
+      ) {
         toast.success(
-          `Cashed out at ${b.cashOutMultiplier?.toFixed(2)}x · Won ${currency(b.potentialWin)} RWF`,
+          `Cashed out at ${bet.cashOutMultiplier?.toFixed(2)}x · Won ${currency(bet.potentialWin)} RWF`,
+          { id: `cash-out-${userId}-${bet.id}` },
         );
-      previous.current.set(b.id, b.status);
+      }
+      next.set(bet.id, bet.status);
     });
-    if (game.round.status === "CRASHED" && previousStatus.current !== "CRASHED")
-      toast(`Round crashed at ${game.round.crashMultiplier.toFixed(2)}x`);
-    previousStatus.current = game.round.status;
-  }, [game]);
+    previous.current = next;
+  }, [game.bets, game.user?.id]);
 }
